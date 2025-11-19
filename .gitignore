@@ -1,0 +1,52 @@
+# Dependencias
+node_modules/
+package-lock.json
+yarn.lock
+
+# Reportes y resultados de tests
+reports/
+screenshots/
+videos/
+test-results/
+playwright-report/
+
+# Archivos de entorno (contienen credenciales)
+.env
+.env.*
+!.env.*.example
+
+# Archivos temporales
+*.log
+*.tmp
+*.temp
+
+# Archivos de entorno
+.env
+.env.local
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Archivos compilados
+dist/
+build/
+*.js
+*.js.map
+
+# Excepciones para archivos de configuración JS
+!cucumber.js
+!jest.config.js
+!*.config.js
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Playwright
+playwright/.auth/
+

@@ -1,0 +1,116 @@
+{
+  "registradores": {
+    "rrhh": {
+      "username": "adrian",
+      "password": "123",
+      "area": "RRHH",
+      "rol": "Usuario RRHH",
+      "memos": [
+        "JUICIO DE ALIMENTOS",
+        "ADELANTO GRATIFICACIÓN"
+      ]
+    },
+    "vida": {
+      "username": "jcastroc",
+      "password": "password123",
+      "area": "VIDA",
+      "rol": "Usuario VIDA",
+      "memos": [
+        "PAGO DE SOBREVIVENCIA",
+        "RESCATE POLIZA CON PRESTAMO",
+        "PAGO DE MULTAS, COSTAS y CARGOS"
+      ]
+    }
+  },
+  "aprobadores": {
+    "vida": {
+      "aprobador1": {
+        "username": "mhidalgo",
+        "password": "password123",
+        "area": "VIDA",
+        "rol": "Aprobador Nivel 1",
+        "nivel": 1,
+        "rangos": {
+          "dolares": {
+            "min": 0,
+            "max": 20000
+          },
+          "soles": {
+            "min": 0,
+            "max": 60000
+          }
+        }
+      },
+      "aprobador2": {
+        "username": "sdelrio",
+        "password": "password123",
+        "area": "VIDA",
+        "rol": "Aprobador Nivel 2",
+        "nivel": 2,
+        "rangos": {
+          "dolares": {
+            "min": 20000,
+            "max": 100000
+          },
+          "soles": {
+            "min": 60000,
+            "max": 300000
+          }
+        }
+      },
+      "aprobador3": {
+        "username": "jmotta",
+        "password": "password123",
+        "area": "VIDA",
+        "rol": "Aprobador Nivel 3",
+        "nivel": 3,
+        "rangos": {
+          "dolares": {
+            "min": 100000,
+            "max": 6000000
+          },
+          "soles": {
+            "min": 300000,
+            "max": 2000000
+          }
+        }
+      },
+      "aprobador4": {
+        "username": "USUARIO_APROBADOR4",
+        "password": "PASSWORD4",
+        "area": "VIDA",
+        "rol": "Aprobador Nivel 4",
+        "nivel": 4,
+        "rangos": {
+          "dolares": {
+            "min": 6000000,
+            "max": 999999999
+          },
+          "soles": {
+            "min": 2000000,
+            "max": 999999999
+          }
+        }
+      }
+    }
+  },
+  "bancos": {
+    "interbank": {
+      "nombre": "Interbank",
+      "digitos": 13
+    },
+    "scotiabank": {
+      "nombre": "Scotiabank",
+      "digitos": 10
+    },
+    "bcp": {
+      "nombre": "Banco de Crédito del Perú",
+      "digitos": 14
+    },
+    "bbva": {
+      "nombre": "BBVA Continental",
+      "digitos": 20
+    }
+  }
+}
+

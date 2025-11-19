@@ -1,0 +1,58 @@
+{
+  "name": "paynova-automation-tests",
+  "version": "1.0.0",
+  "description": "Automated testing for Paynova using Playwright and Cucumber",
+  "main": "index.js",
+  "scripts": {
+    "test": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js",
+    "test:dev": "cross-env ENV=dev BROWSER=chromium cucumber-js --config=config/cucumber.js",
+    "test:uat": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js",
+    "test:login": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.login.js",
+    "test:solicitud": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.rrhh.js",
+    "test:vida": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.vida.js",
+    "test:firefox": "cross-env ENV=uat BROWSER=firefox cucumber-js --config=config/cucumber.js",
+    "test:webkit": "cross-env ENV=uat BROWSER=webkit cucumber-js --config=config/cucumber.js",
+    "test:headless": "cross-env ENV=uat BROWSER=chromium HEADLESS=true cucumber-js --config=config/cucumber.js",
+    "test:parallel": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --parallel 2",
+    "test:tags": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags",
+    "test:fast": "cross-env ENV=uat BROWSER=chromium HEADLESS=true cucumber-js --config=config/cucumber.js --parallel 2",
+    "test:suite:smoke": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @suite-smoke",
+    "test:suite:rrhh": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @suite-rrhh",
+    "test:suite:vida:registro": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @suite-vida-registro",
+    "test:suite:vida:aprobacion": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @suite-vida-aprobacion",
+    "test:suite:vida": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @suite-vida",
+    "test:suite:completa": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @suite-completa",
+    "test:suite:completa:orden": "powershell -ExecutionPolicy Bypass -File scripts/run-suite-completa.ps1",
+    "posttest": "npx ts-node src/helper/report.ts",
+    "posttest:dev": "npx ts-node src/helper/report.ts",
+    "posttest:uat": "npx ts-node src/helper/report.ts",
+    "posttest:login": "npx ts-node src/helper/report.ts",
+    "posttest:solicitud": "npx ts-node src/helper/report.ts",
+    "posttest:vida": "npx ts-node src/helper/report.ts",
+    "open:report": "start test-results/reports/index.html",
+    "clean": "rmdir /s /q test-results node_modules 2>nul & del package-lock.json 2>nul || echo Cleaned",
+    "clean:data": "powershell -ExecutionPolicy Bypass -File scripts/clean-data.ps1"
+  },
+  "keywords": [
+    "playwright",
+    "cucumber",
+    "automation",
+    "testing",
+    "e2e"
+  ],
+  "author": "Adrian Rondan",
+  "license": "ISC",
+  "devDependencies": {
+    "@cucumber/cucumber": "^10.1.0",
+    "@playwright/test": "^1.40.1",
+    "@types/node": "^20.10.5",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.3",
+    "multiple-cucumber-html-reporter": "^3.9.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "playwright": "^1.40.1"
+  }
+}

@@ -1,0 +1,290 @@
+{
+  "rrhh": {
+    "juicio_alimentos": {
+      "memo": "JUICIO DE ALIMENTOS",
+      "beneficiarios": [
+        {
+          "nombres": "Ana Lopez",
+          "dni": "87654321",
+          "moneda": "Soles",
+          "monto": 600,
+          "banco": "Interbank",
+          "tipo_cuenta": "Ahorros",
+          "numero_cuenta": "1234567890123"
+        },
+        {
+          "nombres": "Carlos Ruiz",
+          "dni": "12345678",
+          "moneda": "Soles",
+          "monto": 500,
+          "banco": "Scotiabank",
+          "tipo_cuenta": "Ahorros",
+          "numero_cuenta": "1234567890"
+        },
+        {
+          "nombres": "Maria Torres",
+          "dni": "11223344",
+          "moneda": "Soles",
+          "monto": 700,
+          "banco": "Banco de Crédito del Perú",
+          "tipo_cuenta": "Ahorros",
+          "numero_cuenta": "12345678901234"
+        },
+        {
+          "nombres": "Pedro Garcia",
+          "dni": "99887766",
+          "moneda": "Soles",
+          "monto": 800,
+          "banco": "BBVA Continental",
+          "tipo_cuenta": "Ahorros",
+          "numero_cuenta": "12345678901234567890"
+        }
+      ]
+    },
+    "adelanto_gratificacion": {
+      "memo": "ADELANTO GRATIFICACIÓN",
+      "beneficiarios": [
+        {
+          "nombres": "Luis Martinez",
+          "dni": "55667788",
+          "moneda": "Soles",
+          "monto": 1200,
+          "banco": "Interbank",
+          "tipo_cuenta": "Ahorros",
+          "numero_cuenta": "9876543210987"
+        }
+      ]
+    }
+  },
+  "vida": {
+    "pago_sobrevivencia_interbank_dolares": {
+      "memo": "PAGO DE SOBREVIVENCIA",
+      "requiere_modal": true,
+      "indice_registro_modal": 1,
+      "dni": "45678912",
+      "poliza": "4393543295",
+      "moneda": "Dolares",
+      "monto": 800,
+      "banco": "Interbank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890123"
+    },
+    "rescate_poliza_scotiabank_dolares": {
+      "memo": "RESCATE POLIZA CON PRESTAMO",
+      "requiere_modal": true,
+      "indice_registro_modal": 2,
+      "dni": "78945612",
+      "poliza": "4407767694",
+      "moneda": "Dolares",
+      "monto": 20000,
+      "banco": "Scotiabank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890"
+    },
+    "pago_multas_bcp_dolares": {
+      "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+      "requiere_modal": true,
+      "indice_registro_modal": 3,
+      "dni": "32165498",
+      "poliza": "4421094447",
+      "moneda": "Dolares",
+      "monto": 50000,
+      "banco": "Banco de Crédito del Perú",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "98765432109876"
+    },
+    "pago_sobrevivencia_rechazar": {
+      "memo": "PAGO DE SOBREVIVENCIA",
+      "requiere_modal": true,
+      "indice_registro_modal": 1,
+      "dni": "45678912",
+      "poliza": "4393543295",
+      "moneda": "Dolares",
+      "monto": 800,
+      "banco": "Interbank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890123"
+    },
+    "rescate_poliza_rechazar": {
+      "memo": "RESCATE POLIZA CON PRESTAMO",
+      "requiere_modal": true,
+      "indice_registro_modal": 2,
+      "dni": "78945612",
+      "poliza": "4407767694",
+      "moneda": "Dolares",
+      "monto": 20000,
+      "banco": "Scotiabank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890"
+    },
+    "pago_multas_rechazar": {
+      "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+      "requiere_modal": true,
+      "indice_registro_modal": 3,
+      "dni": "32165498",
+      "poliza": "4421094447",
+      "moneda": "Dolares",
+      "monto": 50000,
+      "banco": "Banco de Crédito del Perú",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "98765432109876"
+    },
+    "pago_sobrevivencia_observar": {
+      "memo": "PAGO DE SOBREVIVENCIA",
+      "requiere_modal": true,
+      "indice_registro_modal": 1,
+      "dni": "45678912",
+      "poliza": "4393543295",
+      "moneda": "Dolares",
+      "monto": 800,
+      "banco": "Interbank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890123"
+    },
+    "rescate_poliza_observar": {
+      "memo": "RESCATE POLIZA CON PRESTAMO",
+      "requiere_modal": true,
+      "indice_registro_modal": 2,
+      "dni": "78945612",
+      "poliza": "4407767694",
+      "moneda": "Dolares",
+      "monto": 20000,
+      "banco": "Scotiabank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890"
+    },
+    "pago_multas_observar": {
+      "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+      "requiere_modal": true,
+      "indice_registro_modal": 3,
+      "dni": "32165498",
+      "poliza": "4421094447",
+      "moneda": "Dolares",
+      "monto": 50000,
+      "banco": "Banco de Crédito del Perú",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "98765432109876"
+    },
+    "pago_sobrevivencia_aprobador2_soles": {
+      "memo": "PAGO DE SOBREVIVENCIA",
+      "requiere_modal": true,
+      "indice_registro_modal": 1,
+      "dni": "45678912",
+      "poliza": "4393543295",
+      "moneda": "Soles",
+      "monto": 70000,
+      "banco": "Interbank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890123"
+    },
+    "rescate_poliza_aprobador2_dolares": {
+      "memo": "RESCATE POLIZA CON PRESTAMO",
+      "requiere_modal": true,
+      "indice_registro_modal": 2,
+      "dni": "78945612",
+      "poliza": "4407767694",
+      "moneda": "Dolares",
+      "monto": 25000,
+      "banco": "Scotiabank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890"
+    },
+    "pago_multas_aprobador2_soles": {
+      "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+      "requiere_modal": true,
+      "indice_registro_modal": 3,
+      "dni": "32165498",
+      "poliza": "4421094447",
+      "moneda": "Soles",
+      "monto": 80000,
+      "banco": "Banco de Crédito del Perú",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "98765432109876"
+    },
+    "pago_sobrevivencia_aprobador3_soles": {
+      "memo": "PAGO DE SOBREVIVENCIA",
+      "requiere_modal": true,
+      "indice_registro_modal": 1,
+      "dni": "45678912",
+      "poliza": "4393543295",
+      "moneda": "Soles",
+      "monto": 500000,
+      "banco": "Interbank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890123"
+    },
+    "rescate_poliza_aprobador3_dolares": {
+      "memo": "RESCATE POLIZA CON PRESTAMO",
+      "requiere_modal": true,
+      "indice_registro_modal": 2,
+      "dni": "78945612",
+      "poliza": "4407767694",
+      "moneda": "Dolares",
+      "monto": 150000,
+      "banco": "Scotiabank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890"
+    },
+    "pago_multas_aprobador3_soles": {
+      "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+      "requiere_modal": true,
+      "indice_registro_modal": 3,
+      "dni": "32165498",
+      "poliza": "4421094447",
+      "moneda": "Soles",
+      "monto": 400000,
+      "banco": "Banco de Crédito del Perú",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "98765432109876"
+    },
+    "pago_sobrevivencia": {
+      "memo": "PAGO DE SOBREVIVENCIA",
+      "requiere_modal": true,
+      "beneficiarios": [
+        {
+          "dni": "45678912",
+          "poliza": "4393543295",
+          "contratante": "ANA MARIA CABALLERO DEZA",
+          "moneda": "Soles",
+          "monto": 800,
+          "banco": "Interbank",
+          "tipo_cuenta": "Ahorros",
+          "numero_cuenta": "1234567890123"
+        },
+        {
+          "dni": "78945612",
+          "poliza": "4407767694",
+          "contratante": "RICARDO JAVIER UGAMOTO HIROTA",
+          "moneda": "Soles",
+          "monto": 950,
+          "banco": "Scotiabank",
+          "tipo_cuenta": "Ahorros",
+          "numero_cuenta": "9876543210"
+        }
+      ]
+    },
+    "rescate_poliza": {
+      "memo": "RESCATE POLIZA CON PRESTAMO",
+      "requiere_modal": true,
+      "beneficiarios": [
+        {
+          "dni": "32165498",
+          "poliza": "4421094447",
+          "contratante": "SANTOS LUCIA GUZMAN VARELA",
+          "moneda": "Dolares",
+          "monto": 1500,
+          "banco": "Banco de Crédito del Perú",
+          "tipo_cuenta": "Ahorros",
+          "numero_cuenta": "98765432109876"
+        }
+      ]
+    }
+  },
+  "tipo_pago": {
+    "tipo": "Transferencia",
+    "codigo_tipo": "TR",
+    "subtipo": "Transferencia a terceros",
+    "codigo_subtipo": "TR"
+  }
+}
+

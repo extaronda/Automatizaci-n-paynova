@@ -1,0 +1,152 @@
+[
+  {
+    "correlativo": "2025-VIDA-0535",
+    "incidente": "633384",
+    "area": "VIDA",
+    "memo": "PAGO DE SOBREVIVENCIA",
+    "monto": 800,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:48:31.801Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0536",
+    "incidente": "633385",
+    "area": "VIDA",
+    "memo": "RESCATE POLIZA CON PRESTAMO",
+    "monto": 20000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:49:12.714Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0537",
+    "incidente": "633386",
+    "area": "VIDA",
+    "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+    "monto": 50000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:49:54.693Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0538",
+    "incidente": "633387",
+    "area": "VIDA",
+    "memo": "PAGO DE SOBREVIVENCIA",
+    "monto": 800,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:50:35.509Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0539",
+    "incidente": "633388",
+    "area": "VIDA",
+    "memo": "RESCATE POLIZA CON PRESTAMO",
+    "monto": 20000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:51:12.649Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0540",
+    "incidente": "633389",
+    "area": "VIDA",
+    "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+    "monto": 50000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:51:48.146Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0541",
+    "incidente": "633390",
+    "area": "VIDA",
+    "memo": "PAGO DE SOBREVIVENCIA",
+    "monto": 800,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:52:26.251Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0542",
+    "incidente": "633391",
+    "area": "VIDA",
+    "memo": "RESCATE POLIZA CON PRESTAMO",
+    "monto": 20000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:54:03.750Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0543",
+    "incidente": "633392",
+    "area": "VIDA",
+    "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+    "monto": 50000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:54:34.042Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0544",
+    "incidente": "633393",
+    "area": "VIDA",
+    "memo": "PAGO DE SOBREVIVENCIA",
+    "monto": 70000,
+    "moneda": "Soles",
+    "fechaCreacion": "2025-11-19T17:55:06.509Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0545",
+    "incidente": "633394",
+    "area": "VIDA",
+    "memo": "RESCATE POLIZA CON PRESTAMO",
+    "monto": 25000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:55:37.179Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0546",
+    "incidente": "633395",
+    "area": "VIDA",
+    "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+    "monto": 80000,
+    "moneda": "Soles",
+    "fechaCreacion": "2025-11-19T17:56:08.047Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0547",
+    "incidente": "633396",
+    "area": "VIDA",
+    "memo": "PAGO DE SOBREVIVENCIA",
+    "monto": 500000,
+    "moneda": "Soles",
+    "fechaCreacion": "2025-11-19T17:56:42.732Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0548",
+    "incidente": "633397",
+    "area": "VIDA",
+    "memo": "RESCATE POLIZA CON PRESTAMO",
+    "monto": 150000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-19T17:57:18.567Z",
+    "usuario": "jcastroc"
+  },
+  {
+    "correlativo": "2025-VIDA-0549",
+    "incidente": "633398",
+    "area": "VIDA",
+    "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+    "monto": 400000,
+    "moneda": "Soles",
+    "fechaCreacion": "2025-11-19T17:57:55.684Z",
+    "usuario": "jcastroc"
+  }
+]
