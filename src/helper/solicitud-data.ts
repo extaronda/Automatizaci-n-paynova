@@ -15,6 +15,8 @@ interface SolicitudCreada {
   moneda: string;
   fechaCreacion: string;
   usuario: string;
+  accion?: 'rechazar' | 'observar' | 'aprobar'; // Acción para la cual se registró esta solicitud
+  aprobadorNivel?: 1 | 2 | 3; // Nivel de aprobador para el cual se registró esta solicitud
 }
 
 const dataPath = path.resolve(__dirname, '../../test-data/solicitudes-creadas.json');
@@ -118,21 +120,18 @@ export function obtenerSolicitudPorMemo(memo: string, area?: string): SolicitudC
 }
 
 /**
- * Obtiene una solicitud por memo y acción específica
- * IMPORTANTE: La estructura del JSON es:
- * - RECHAZAR: índices 0-2 (0481, 0482, 0483) - SOBREVIVENCIA, RESCATE, MULTAS
- * - OBSERVAR: índices 3-5 (0484, 0485, 0486) - SOBREVIVENCIA, RESCATE, MULTAS
- * - APROBAR: índices 6-8 (0487, 0488, 0489) - SOBREVIVENCIA, RESCATE, MULTAS
+ * Obtiene una solicitud por memo, acción y aprobador nivel
+ * IMPORTANTE: Ahora usa los campos `accion` y `aprobadorNivel` guardados en el JSON
  * 
  * @param memo - Memo de la solicitud
  * @param accion - Acción a realizar: 'rechazar', 'observar', 'aprobar'
- * @param indiceMemo - Índice del memo (0=PAGO DE SOBREVIVENCIA, 1=RESCATE, 2=MULTAS)
+ * @param aprobadorNivel - Nivel de aprobador: 1, 2, o 3
  * @param area - Área de la solicitud (opcional)
  */
 export function obtenerSolicitudPorMemoYAccion(
   memo: string, 
   accion: 'rechazar' | 'observar' | 'aprobar',
-  indiceMemo: number = 0,
+  aprobadorNivel: 1 | 2 | 3 = 1,
   area?: string
 ): SolicitudCreada | null {
   if (!fs.existsSync(dataPath)) {
@@ -155,81 +154,68 @@ export function obtenerSolicitudPorMemoYAccion(
     return null;
   }
   
-  // Mapear acción a índice base en el array completo (no filtrado por memo)
-  // Estructura: RECHAZAR (0-2), OBSERVAR (3-5), APROBAR (6-8)
-  let indiceBase = 0;
-  if (accion === 'rechazar') {
-    indiceBase = 0; // Primeros 3
-  } else if (accion === 'observar') {
-    indiceBase = 3; // Siguientes 3
-  } else if (accion === 'aprobar') {
-    indiceBase = 6; // Siguientes 3
-  }
-  
-  // Calcular índice final: indiceBase + indiceMemo
-  // indiceMemo: 0=PAGO DE SOBREVIVENCIA, 1=RESCATE, 2=MULTAS
-  const indiceFinal = indiceBase + indiceMemo;
-  
-  if (indiceFinal >= solicitudes.length) {
-    // Si no hay suficientes, buscar por memo en todo el array
-    console.log(`⚠️  Índice ${indiceFinal} fuera de rango, buscando por memo "${memo}" y acción "${accion}"`);
-    const memoNormalizado = memo.toLowerCase().replace(/,/g, '').trim();
-    const solicitudesPorMemo = solicitudes.filter(s => {
-      const memoNormalizadoSolicitud = s.memo.toLowerCase().replace(/,/g, '').trim();
-      return memoNormalizadoSolicitud.includes(memoNormalizado) || memoNormalizado.includes(memoNormalizadoSolicitud);
-    });
-    
-    // Buscar la solicitud que corresponda a la acción dentro del grupo del memo
-    // Asumimos que dentro de cada grupo de memo, las acciones están en orden: rechazar, observar, aprobar
-    if (solicitudesPorMemo.length > 0) {
-      // Encontrar el índice de la primera solicitud de este memo en el array completo
-      const primerIndiceMemo = solicitudes.findIndex(s => {
-        const memoNormalizadoSolicitud = s.memo.toLowerCase().replace(/,/g, '').trim();
-        return memoNormalizadoSolicitud.includes(memoNormalizado) || memoNormalizado.includes(memoNormalizadoSolicitud);
-      });
-      
-      if (primerIndiceMemo !== -1) {
-        // Calcular el índice considerando el offset del primer memo
-        const indiceConOffset = primerIndiceMemo + indiceBase + indiceMemo;
-        if (indiceConOffset < solicitudes.length) {
-          return solicitudes[indiceConOffset];
-        }
-      }
-      
-      // Fallback: usar la última del memo
-      return solicitudesPorMemo[solicitudesPorMemo.length - 1] || null;
-    }
-    
-    return null;
-  }
-  
-  // Verificar que el memo coincida (validación adicional)
-  const solicitud = solicitudes[indiceFinal];
+  // Normalizar el memo para búsqueda
   const memoNormalizado = memo.toLowerCase().replace(/,/g, '').trim();
-  const memoNormalizadoSolicitud = solicitud.memo.toLowerCase().replace(/,/g, '').trim();
   
-  if (memoNormalizadoSolicitud.includes(memoNormalizado) || memoNormalizado.includes(memoNormalizadoSolicitud)) {
+  // NUEVO: Buscar por los campos accion y aprobadorNivel directamente
+  let solicitudesFiltradas = solicitudes.filter(s => {
+    const memoNormalizadoSolicitud = s.memo.toLowerCase().replace(/,/g, '').trim();
+    const memoCoincide = memoNormalizadoSolicitud.includes(memoNormalizado) || memoNormalizado.includes(memoNormalizadoSolicitud);
+    const accionCoincide = s.accion === accion;
+    const nivelCoincide = s.aprobadorNivel === aprobadorNivel;
+    
+    return memoCoincide && accionCoincide && nivelCoincide;
+  });
+  
+  if (solicitudesFiltradas.length > 0) {
+    // Retornar la última que coincida (más reciente)
+    const solicitud = solicitudesFiltradas[solicitudesFiltradas.length - 1];
+    console.log(`   📋 Solicitud encontrada por campos: ${solicitud.correlativo} (Acción: ${accion}, Aprobador Nivel: ${aprobadorNivel}, Memo: ${memo})`);
     return solicitud;
   }
   
-  // Si no coincide, buscar manualmente en el rango esperado
-  console.log(`⚠️  Memo no coincide en índice ${indiceFinal}, buscando manualmente...`);
-  for (let i = indiceBase; i < indiceBase + 3 && i < solicitudes.length; i++) {
-    const s = solicitudes[i];
-    const memoNormalizadoS = s.memo.toLowerCase().replace(/,/g, '').trim();
-    if (memoNormalizadoS.includes(memoNormalizado) || memoNormalizado.includes(memoNormalizadoS)) {
-      return s;
-    }
+  // Fallback: Si no tiene los campos, buscar por memo y acción (sin nivel)
+  console.log(`⚠️  No se encontró con campos exactos, buscando por memo y acción...`);
+  solicitudesFiltradas = solicitudes.filter(s => {
+    const memoNormalizadoSolicitud = s.memo.toLowerCase().replace(/,/g, '').trim();
+    const memoCoincide = memoNormalizadoSolicitud.includes(memoNormalizado) || memoNormalizado.includes(memoNormalizadoSolicitud);
+    const accionCoincide = s.accion === accion;
+    
+    return memoCoincide && accionCoincide;
+  });
+  
+  if (solicitudesFiltradas.length > 0) {
+    const solicitud = solicitudesFiltradas[solicitudesFiltradas.length - 1];
+    console.log(`   📋 Solicitud encontrada por memo y acción: ${solicitud.correlativo} (Acción: ${accion}, Memo: ${memo})`);
+    return solicitud;
+  }
+  
+  // Último fallback: buscar solo por memo
+  solicitudesFiltradas = solicitudes.filter(s => {
+    const memoNormalizadoSolicitud = s.memo.toLowerCase().replace(/,/g, '').trim();
+    return memoNormalizadoSolicitud.includes(memoNormalizado) || memoNormalizado.includes(memoNormalizadoSolicitud);
+  });
+  
+  if (solicitudesFiltradas.length > 0) {
+    const solicitud = solicitudesFiltradas[solicitudesFiltradas.length - 1];
+    console.log(`   ⚠️  Solicitud encontrada solo por memo (sin filtro de acción/nivel): ${solicitud.correlativo}`);
+    return solicitud;
   }
   
   return null;
 }
 
 /**
- * Obtiene una solicitud por memo y monto (útil para Aprobadores 2 y 3)
- * Busca la solicitud que coincida con el memo y el monto especificado
+ * Obtiene una solicitud por memo, monto y aprobador nivel (útil para Aprobadores 2 y 3)
+ * Busca la solicitud que coincida con el memo, monto y aprobador nivel especificado
  */
-export function obtenerSolicitudPorMemoYMonto(memo: string, monto: number, moneda: string, area?: string): SolicitudCreada | null {
+export function obtenerSolicitudPorMemoYMonto(
+  memo: string, 
+  monto: number, 
+  moneda: string, 
+  aprobadorNivel: 1 | 2 | 3 = 1,
+  area?: string
+): SolicitudCreada | null {
   if (!fs.existsSync(dataPath)) {
     return null;
   }
@@ -257,14 +243,29 @@ export function obtenerSolicitudPorMemoYMonto(memo: string, monto: number, moned
     return null;
   }
   
-  // Filtrar por monto y moneda (coincidencia exacta)
+  // Filtrar por monto, moneda y aprobador nivel (coincidencia exacta)
   const solicitudesPorMonto = solicitudesFiltradas.filter(s => 
-    s.monto === monto && s.moneda.toLowerCase() === moneda.toLowerCase()
+    s.monto === monto && 
+    s.moneda.toLowerCase() === moneda.toLowerCase() &&
+    s.aprobadorNivel === aprobadorNivel
   );
   
   if (solicitudesPorMonto.length > 0) {
-    // Retornar la última que coincida con monto y moneda
-    return solicitudesPorMonto[solicitudesPorMonto.length - 1] || null;
+    // Retornar la última que coincida con monto, moneda y nivel
+    const solicitud = solicitudesPorMonto[solicitudesPorMonto.length - 1];
+    console.log(`   📋 Solicitud encontrada por monto y nivel: ${solicitud.correlativo} (Monto: ${monto} ${moneda}, Aprobador Nivel: ${aprobadorNivel})`);
+    return solicitud;
+  }
+  
+  // Fallback: buscar solo por monto y moneda (sin nivel)
+  const solicitudesPorMontoSinNivel = solicitudesFiltradas.filter(s => 
+    s.monto === monto && s.moneda.toLowerCase() === moneda.toLowerCase()
+  );
+  
+  if (solicitudesPorMontoSinNivel.length > 0) {
+    const solicitud = solicitudesPorMontoSinNivel[solicitudesPorMontoSinNivel.length - 1];
+    console.log(`   ⚠️  Solicitud encontrada solo por monto (sin nivel): ${solicitud.correlativo}`);
+    return solicitud;
   }
   
   // Si no hay coincidencia exacta, retornar la última del memo

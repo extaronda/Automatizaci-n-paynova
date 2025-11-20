@@ -5,10 +5,10 @@ import { getEnv } from '../helper/env/env';
 const env = getEnv();
 
 const timeouts = {
-  short: 10000,
-  medium: 20000,
-  long: 60000,
-  navigation: 60000
+  short: 5000,      // Reducido de 10000 a 5000
+  medium: 10000,    // Reducido de 20000 a 10000
+  long: 30000,      // Reducido de 60000 a 30000
+  navigation: 30000 // Reducido de 60000 a 30000
 };
 
 /**
@@ -47,7 +47,7 @@ export class LoginPage {
    */
   async navigateToLogin(): Promise<void> {
     await this.page.goto(env.loginUrl, { 
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded', // Más rápido que networkidle
       timeout: timeouts.navigation 
     });
     console.log('✓ Navegación a página de login exitosa');

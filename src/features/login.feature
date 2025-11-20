@@ -10,8 +10,8 @@ Característica: Autenticación de usuarios en Paynova
   @login @happy-path @suite-completa @suite-smoke
   Escenario: Login exitoso con credenciales válidas
     Cuando hago clic en "Usar login tradicional"
-    Y ingreso el usuario "adrian"
-    Y ingreso la contraseña "123"
+    Y ingreso el usuario "evarasga"
+    Y ingreso la contraseña "Primeras20"
     Y hago clic en el botón INGRESAR
     Entonces debería ver el dashboard del sistema
     Y debería ver mi nombre de usuario en el navbar

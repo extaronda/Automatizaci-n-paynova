@@ -1,0 +1,51 @@
+{
+  "informacionGeneral": {
+    "campos": [
+      "Correlativo",
+      "Incidente",
+      "Asunto",
+      "Monto",
+      "Estado",
+      "Fecha Creación"
+    ],
+    "descripcion": "Campos que deben existir en la sección Información General"
+  },
+  "datos": {
+    "campos": [
+      "Nombre",
+      "DNI",
+      "Monto",
+      "Moneda",
+      "Banco",
+      "Cuenta"
+    ],
+    "descripcion": "Columnas que deben existir en la tabla de Datos"
+  },
+  "distribucion": {
+    "campos": [
+      "Centro de Costo",
+      "Porcentaje",
+      "Monto"
+    ],
+    "descripcion": "Columnas que deben existir en la tabla de Distribución"
+  },
+  "trazabilidad": {
+    "campos": [
+      "Paso",
+      "Usuario",
+      "Fecha Inicio",
+      "Fecha Fin",
+      "Estado"
+    ],
+    "descripcion": "Columnas que deben existir en la tabla de Trazabilidad"
+  },
+  "secciones": [
+    "Información General",
+    "Datos",
+    "Documentos",
+    "Observaciones",
+    "Distribución",
+    "Trazabilidad"
+  ]
+}
+

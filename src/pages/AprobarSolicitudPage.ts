@@ -49,17 +49,17 @@ export class AprobarSolicitudPage {
     // Verificar si ya estamos en la bandeja
     const currentUrl = this.page.url();
     if (currentUrl.includes('/solicitudes-pago') && !currentUrl.includes('/registrar')) {
-      // Ya estamos en la bandeja, solo esperar a que cargue la tabla
-      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 10000 });
+      // Ya estamos en la bandeja, solo esperar a que cargue la tabla (timeout reducido)
+      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 5000 });
       return;
     }
     
     // 1. Expandir menú Solicitud de Pagos
     const menuButton = this.page.locator('button:has-text("Solicitud de Pagos")');
-    await menuButton.waitFor({ state: 'visible', timeout: 5000 });
+    await menuButton.waitFor({ state: 'visible', timeout: 3000 });
     await menuButton.click();
-    // Esperar solo a que aparezca el submenu (más rápido que timeout fijo)
-    await this.page.waitForSelector('a[href="/solicitudes-pago"].submenu-item', { state: 'attached', timeout: 3000 });
+    // Esperar solo a que aparezca el submenu (timeout reducido)
+    await this.page.waitForSelector('a[href="/solicitudes-pago"].submenu-item', { state: 'attached', timeout: 2000 });
     
     // 2. Hacer clic en el enlace "Bandeja" del submenu de "Solicitud de Pagos"
     // Selector específico: <a href="/solicitudes-pago" class="submenu-item">Bandeja</a>
@@ -68,8 +68,8 @@ export class AprobarSolicitudPage {
     const linkBandeja = this.page.locator('a[href="/solicitudes-pago"].submenu-item');
     await linkBandeja.click({ force: true });
     
-    // 3. Esperar a que cargue la tabla de solicitudes de pago (esperar por elemento específico, no networkidle)
-    await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 8000 });
+    // 3. Esperar a que cargue la tabla de solicitudes de pago (timeout reducido)
+    await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 5000 });
   }
 
   /**
@@ -118,12 +118,97 @@ export class AprobarSolicitudPage {
   }
 
   /**
+   * Extrae el ID de la solicitud desde la tabla de la bandeja usando correlativo o incidente
+   * El ID está en la primera columna de la tabla
+   */
+  async extraerIdSolicitudDesdeBandeja(correlativo: string, incidente: string): Promise<string | null> {
+    return await this.page.evaluate(({ corr, inc }: { corr: string; inc: string }) => {
+      // @ts-ignore
+      const rows = Array.from(document.querySelectorAll('tbody tr, table tr')) as any[];
+      for (const row of rows) {
+        const rowText = row.textContent || '';
+        if (rowText.includes(corr) || rowText.includes(inc)) {
+          // El ID suele estar en la primera celda (td) de la fila
+          const firstCell = row.querySelector('td');
+          if (firstCell) {
+            const id = firstCell.textContent?.trim();
+            // Verificar que sea un número (el ID)
+            if (id && /^\d+$/.test(id)) {
+              return id;
+            }
+          }
+          // También buscar en el href de los botones/enlaces
+          const links = row.querySelectorAll('a[href*="/solicitudes-pago/"]');
+          for (const link of links) {
+            const href = link.getAttribute('href') || '';
+            const match = href.match(/\/solicitudes-pago\/(\d+)/);
+            if (match) {
+              return match[1];
+            }
+          }
+        }
+      }
+      return null;
+    }, { corr: correlativo, inc: incidente });
+  }
+
+  /**
+   * Navega directamente al detalle de una solicitud usando el ID o incidente
+   * Útil cuando la solicitud puede estar en cualquier estado y no está en la bandeja actual
+   */
+  async navegarADetallePorIncidente(incidente: string, correlativo?: string): Promise<void> {
+    // Primero intentar extraer el ID desde la bandeja si está visible
+    if (correlativo) {
+      const idSolicitud = await this.extraerIdSolicitudDesdeBandeja(correlativo, incidente);
+      if (idSolicitud) {
+        try {
+      await this.page.goto(`/solicitudes-pago/${idSolicitud}?origen=bandeja`, {
+        waitUntil: 'domcontentloaded', // Más rápido que networkidle
+        timeout: 8000
+      });
+      
+      await this.page.waitForSelector('text=/Detalle de Solicitud/i, h1:has-text("Detalle"), text=/Información General/i', {
+        state: 'visible',
+        timeout: 4000
+      });
+          
+          console.log(`   ✓ Navegado directamente al detalle usando ID: ${idSolicitud}`);
+          return;
+        } catch (error) {
+          console.log(`   ⚠️  No se pudo navegar con ID ${idSolicitud}`);
+        }
+      }
+    }
+    
+    // Si no se encontró ID, intentar con el incidente directamente
+    try {
+      await this.page.goto(`/solicitudes-pago/${incidente}?origen=bandeja`, {
+        waitUntil: 'domcontentloaded', // Más rápido que networkidle
+        timeout: 8000
+      });
+      
+      await this.page.waitForSelector('text=/Detalle de Solicitud/i, h1:has-text("Detalle"), text=/Información General/i', {
+        state: 'visible',
+        timeout: 4000
+      });
+      
+      console.log(`   ✓ Navegado directamente al detalle usando incidente: ${incidente}`);
+      return;
+    } catch (error) {
+      console.log(`   ⚠️  No se pudo navegar directamente con incidente ${incidente}`);
+      throw error;
+    }
+  }
+
+  /**
    * Selecciona una solicitud por correlativo O incidente (más confiable que memo)
    * IMPORTANTE: Busca específicamente por correlativo/incidente desde solicitudes-creadas.json
    * NO selecciona la primera de la grilla, busca la solicitud exacta
    * OPCIONAL: Valida también el monto si se proporciona
+   * Si no la encuentra en la bandeja, intenta navegar directamente por URL
    */
   async seleccionarSolicitudPorCorrelativoOIncidente(correlativo: string, incidente: string): Promise<void> {
+    // Primero intentar buscar en la bandeja actual
     const encontrado = await this.page.evaluate(({ corr, inc }: { corr: string; inc: string }) => {
       // @ts-ignore - document existe en el contexto del navegador
       const rows = Array.from(document.querySelectorAll('tbody tr, table tr')) as any[];
@@ -147,8 +232,45 @@ export class AprobarSolicitudPage {
       return false;
     }, { corr: correlativo, inc: incidente });
     
-    if (!encontrado) {
-      throw new Error(`No se encontró solicitud con correlativo "${correlativo}" o incidente "${incidente}"`);
+    // Si no se encontró en la bandeja, intentar navegar directamente
+    if (!encontrado || !encontrado.encontrado) {
+      console.log(`   🔍 Solicitud no encontrada en bandeja actual, intentando navegar directamente...`);
+      try {
+        await this.navegarADetallePorIncidente(incidente, correlativo);
+        // Si llegamos aquí, la navegación fue exitosa
+        return;
+      } catch (error) {
+        // Si tampoco funciona, lanzar error con información útil
+        const filasDisponibles = await this.page.evaluate(() => {
+          // @ts-ignore
+          const rows = Array.from(document.querySelectorAll('tbody tr, table tr')) as any[];
+          return rows.slice(0, 5).map((row: any) => (row.textContent || '').substring(0, 100));
+        });
+        throw new Error(
+          `No se encontró solicitud con correlativo "${correlativo}" o incidente "${incidente}" en la bandeja ni se pudo navegar directamente. ` +
+          `Filas disponibles: ${filasDisponibles.join(' | ')}`
+        );
+      }
+    }
+    
+    // Esperar a que cargue el detalle (más flexible, no requiere botones de acción)
+    try {
+      // Esperar por el título del detalle o cualquier elemento característico
+      await this.page.waitForSelector('text=/Detalle de Solicitud/i, h1:has-text("Detalle"), text=/Información General/i', {
+        state: 'visible',
+        timeout: 5000
+      });
+      console.log('   ✓ Detalle de solicitud cargado');
+    } catch (error) {
+      // Si no encuentra el título, verificar que al menos estamos en una URL de detalle
+      const currentUrl = this.page.url();
+      if (currentUrl.includes('/solicitudes-pago/') && !currentUrl.includes('/registrar')) {
+        console.log('   ✓ Navegado al detalle (verificado por URL)');
+        // Esperar solo 500ms para que cargue el contenido (reducido de 2000ms)
+        await this.page.waitForTimeout(500);
+      } else {
+        throw new Error(`No se pudo verificar que se cargó el detalle. URL actual: ${currentUrl}`);
+      }
     }
     
     if (!encontrado.encontrado) {
@@ -177,9 +299,24 @@ export class AprobarSolicitudPage {
     
     console.log(`   ✓ Solicitud encontrada por ${encontrado.metodo}: ${encontrado.valor}`);
     
-    // Esperar a que cargue el detalle (botón APROBAR, RECHAZAR u OBSERVAR)
-    await this.page.waitForSelector('button.btn-success, button.btn-danger, button.btn-warning', { state: 'visible', timeout: 10000 });
-    console.log('   ✓ Detalle de solicitud cargado');
+    // Esperar a que cargue el detalle (más flexible, no requiere botones de acción)
+    // Puede que el usuario no sea aprobador, así que solo esperamos el contenido del detalle
+    try {
+      await this.page.waitForSelector('text=/Detalle de Solicitud/i, h1:has-text("Detalle"), text=/Información General/i', {
+        state: 'visible',
+        timeout: 5000
+      });
+      console.log('   ✓ Detalle de solicitud cargado');
+    } catch (error) {
+      // Si no encuentra el título, esperar un momento y verificar URL
+      await this.page.waitForTimeout(500);
+      const currentUrl = this.page.url();
+      if (currentUrl.includes('/solicitudes-pago/') && !currentUrl.includes('/registrar')) {
+        console.log('   ✓ Detalle de solicitud cargado (verificado por URL)');
+      } else {
+        throw new Error(`No se pudo verificar que se cargó el detalle. URL actual: ${currentUrl}`);
+      }
+    }
   }
 
   /**
@@ -225,8 +362,11 @@ export class AprobarSolicitudPage {
       throw new Error(`No se encontró solicitud con memo "${memo}". Filas disponibles: ${todasLasFilas.join(' | ')}`);
     }
     
-    // Esperar a que cargue el detalle
-    await this.page.waitForSelector('button.btn-success:has-text("APROBAR")', { state: 'visible', timeout: 10000 });
+    // Esperar a que cargue el detalle (más flexible, no requiere botones de acción)
+    await this.page.waitForSelector('text=/Detalle de Solicitud/i, h1:has-text("Detalle"), text=/Información General/i', {
+      state: 'visible',
+      timeout: 5000
+    });
   }
 
   // ==================== VERIFICACIONES ====================
@@ -312,6 +452,284 @@ export class AprobarSolicitudPage {
     });
     
     return tieneDatos;
+  }
+
+  // ==================== MÉTODOS PARA VALIDACIÓN DE DETALLE ====================
+
+  /**
+   * Obtiene un campo de la sección Información General
+   */
+  async obtenerCampoInformacionGeneral(campo: string): Promise<string> {
+    const valor = await this.page.evaluate((campoNombre: string) => {
+      // @ts-ignore
+      const pageText = document.body.innerText || document.body.textContent || '';
+      
+      // Buscar el campo en el formato "Campo: Valor"
+      const campoLower = campoNombre.toLowerCase();
+      const regex = new RegExp(`${campoLower}[:\\s]+([^\\n]+)`, 'i');
+      const match = pageText.match(regex);
+      
+      if (match) {
+        return match[1].trim();
+      }
+      
+      // Buscar también en elementos específicos
+      // @ts-ignore
+      const elements = Array.from(document.querySelectorAll('label, span, div, td, th')) as any[];
+      for (const el of elements) {
+        const text = el.textContent || '';
+        if (text.toLowerCase().includes(campoLower)) {
+          // Buscar el siguiente elemento hermano o el valor en el mismo elemento
+          const nextSibling = el.nextElementSibling;
+          if (nextSibling) {
+            const nextText = nextSibling.textContent || '';
+            if (nextText.trim() && !nextText.toLowerCase().includes(campoLower)) {
+              return nextText.trim();
+            }
+          }
+          // Si el texto contiene el valor después de ":"
+          const colonMatch = text.match(new RegExp(`${campoLower}[:\\s]+([^\\n]+)`, 'i'));
+          if (colonMatch) {
+            return colonMatch[1].trim();
+          }
+        }
+      }
+      
+      return '';
+    }, campo);
+    
+    return valor;
+  }
+
+  /**
+   * Obtiene todos los datos de la sección Información General
+   */
+  async obtenerInformacionGeneral(): Promise<Record<string, string>> {
+    const campos = ['Correlativo', 'Incidente', 'Asunto', 'Monto', 'Estado', 'Fecha Creación'];
+    const informacion: Record<string, string> = {};
+    
+    for (const campo of campos) {
+      informacion[campo] = await this.obtenerCampoInformacionGeneral(campo);
+    }
+    
+    return informacion;
+  }
+
+  /**
+   * Verifica que la sección Datos tenga registros
+   */
+  async tieneRegistrosDatos(): Promise<boolean> {
+    return await this.page.evaluate(() => {
+      // @ts-ignore
+      const pageText = document.body.innerText || document.body.textContent || '';
+      
+      // Buscar la sección "Datos" y verificar si tiene registros
+      const datosMatch = pageText.match(/datos\s*\((\d+)\s*registros?\)/i);
+      if (datosMatch) {
+        const cantidad = parseInt(datosMatch[1]);
+        return cantidad > 0;
+      }
+      
+      // Buscar tablas que puedan contener datos
+      // @ts-ignore
+      const tables = Array.from(document.querySelectorAll('table')) as any[];
+      for (const table of tables) {
+        const tableText = table.textContent || '';
+        if (tableText.toLowerCase().includes('nombre') && 
+            tableText.toLowerCase().includes('dni') &&
+            tableText.toLowerCase().includes('banco')) {
+          // Verificar que tenga filas de datos (más de la fila de encabezado)
+          const rows = table.querySelectorAll('tbody tr, tr');
+          return rows.length > 1; // Al menos una fila de datos además del header
+        }
+      }
+      
+      return false;
+    });
+  }
+
+  /**
+   * Obtiene los registros de la sección Datos
+   */
+  async obtenerRegistrosDatos(): Promise<Array<Record<string, string>>> {
+    return await this.page.evaluate(() => {
+      // @ts-ignore
+      const tables = Array.from(document.querySelectorAll('table')) as any[];
+      const registros: Array<Record<string, string>> = [];
+      
+      for (const table of tables) {
+        const tableText = table.textContent || '';
+        if (tableText.toLowerCase().includes('nombre') && 
+            tableText.toLowerCase().includes('dni') &&
+            tableText.toLowerCase().includes('banco')) {
+          // Encontrar la tabla de Datos
+          const rows = table.querySelectorAll('tbody tr, tr');
+          const headers: string[] = [];
+          
+          // Obtener headers de la primera fila
+          const firstRow = rows[0];
+          if (firstRow) {
+            const headerCells = firstRow.querySelectorAll('th, td');
+            headerCells.forEach((cell: any) => {
+              headers.push((cell.textContent || '').trim());
+            });
+          }
+          
+          // Obtener datos de las filas siguientes
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const cells = row.querySelectorAll('td');
+            const registro: Record<string, string> = {};
+            
+            cells.forEach((cell: any, index: number) => {
+              if (headers[index]) {
+                registro[headers[index]] = (cell.textContent || '').trim();
+              }
+            });
+            
+            if (Object.keys(registro).length > 0) {
+              registros.push(registro);
+            }
+          }
+          
+          break; // Solo procesar la primera tabla de Datos encontrada
+        }
+      }
+      
+      return registros;
+    });
+  }
+
+  /**
+   * Verifica que una sección esté presente en el detalle
+   */
+  async verificarSeccionPresente(nombreSeccion: string): Promise<boolean> {
+    return await this.page.evaluate((seccion: string) => {
+      // @ts-ignore
+      const pageText = document.body.innerText || document.body.textContent || '';
+      const seccionLower = seccion.toLowerCase();
+      
+      // Buscar el nombre de la sección en el texto
+      return pageText.toLowerCase().includes(seccionLower);
+    }, nombreSeccion);
+  }
+
+  /**
+   * Verifica que la sección Trazabilidad tenga registros
+   */
+  async tieneRegistrosTrazabilidad(): Promise<boolean> {
+    return await this.page.evaluate(() => {
+      // @ts-ignore
+      const pageText = document.body.innerText || document.body.textContent || '';
+      
+      // Buscar la sección "Trazabilidad" y verificar si tiene registros
+      const trazabilidadMatch = pageText.match(/trazabilidad\s*\((\d+)\s*registros?\)/i);
+      if (trazabilidadMatch) {
+        const cantidad = parseInt(trazabilidadMatch[1]);
+        return cantidad > 0;
+      }
+      
+      // Buscar tablas que puedan contener trazabilidad
+      // @ts-ignore
+      const tables = Array.from(document.querySelectorAll('table')) as any[];
+      for (const table of tables) {
+        const tableText = table.textContent || '';
+        if (tableText.toLowerCase().includes('paso') && 
+            tableText.toLowerCase().includes('usuario') &&
+            tableText.toLowerCase().includes('estado')) {
+          // Verificar que tenga filas de datos
+          const rows = table.querySelectorAll('tbody tr, tr');
+          return rows.length > 1; // Al menos una fila de datos además del header
+        }
+      }
+      
+      return false;
+    });
+  }
+
+  /**
+   * Verifica que la sección Distribución tenga registros
+   */
+  async tieneRegistrosDistribucion(): Promise<boolean> {
+    return await this.page.evaluate(() => {
+      // @ts-ignore
+      const pageText = document.body.innerText || document.body.textContent || '';
+      
+      // Buscar la sección "Distribución" y verificar si tiene registros
+      const distribucionMatch = pageText.match(/distribución\s*\((\d+)\s*registros?\)/i);
+      if (distribucionMatch) {
+        const cantidad = parseInt(distribucionMatch[1]);
+        return cantidad > 0;
+      }
+      
+      // Buscar tablas que puedan contener distribución
+      // @ts-ignore
+      const tables = Array.from(document.querySelectorAll('table')) as any[];
+      for (const table of tables) {
+        const tableText = table.textContent || '';
+        if (tableText.toLowerCase().includes('centro de costo') && 
+            tableText.toLowerCase().includes('porcentaje') &&
+            tableText.toLowerCase().includes('monto')) {
+          // Verificar que tenga filas de datos
+          const rows = table.querySelectorAll('tbody tr, tr');
+          return rows.length > 1; // Al menos una fila de datos además del header
+        }
+      }
+      
+      return false;
+    });
+  }
+
+  /**
+   * Obtiene los registros de la sección Distribución
+   */
+  async obtenerRegistrosDistribucion(): Promise<Array<Record<string, string>>> {
+    return await this.page.evaluate(() => {
+      // @ts-ignore
+      const tables = Array.from(document.querySelectorAll('table')) as any[];
+      const registros: Array<Record<string, string>> = [];
+      
+      for (const table of tables) {
+        const tableText = table.textContent || '';
+        if (tableText.toLowerCase().includes('centro de costo') && 
+            tableText.toLowerCase().includes('porcentaje') &&
+            tableText.toLowerCase().includes('monto')) {
+          // Encontrar la tabla de Distribución
+          const rows = table.querySelectorAll('tbody tr, tr');
+          const headers: string[] = [];
+          
+          // Obtener headers de la primera fila
+          const firstRow = rows[0];
+          if (firstRow) {
+            const headerCells = firstRow.querySelectorAll('th, td');
+            headerCells.forEach((cell: any) => {
+              headers.push((cell.textContent || '').trim());
+            });
+          }
+          
+          // Obtener datos de las filas siguientes
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const cells = row.querySelectorAll('td');
+            const registro: Record<string, string> = {};
+            
+            cells.forEach((cell: any, index: number) => {
+              if (headers[index]) {
+                registro[headers[index]] = (cell.textContent || '').trim();
+              }
+            });
+            
+            if (Object.keys(registro).length > 0) {
+              registros.push(registro);
+            }
+          }
+          
+          break; // Solo procesar la primera tabla de Distribución encontrada
+        }
+      }
+      
+      return registros;
+    });
   }
 
   // ==================== ACCIONES DE APROBACIÓN ====================

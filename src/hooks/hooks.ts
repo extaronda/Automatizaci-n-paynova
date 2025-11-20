@@ -13,72 +13,118 @@ setDefaultTimeout(60000);
  */
 
 BeforeAll(async function () {
-  console.log('\n═══════════════════════════════════════════════════');
-  console.log('🎭 INICIANDO SUITE DE PRUEBAS - PAYNOVA AUTOMATION');
-  console.log('═══════════════════════════════════════════════════\n');
-  
-  // 🗑️ LIMPIAR DATOS DE EJECUCIONES ANTERIORES
-  console.log('🧹 Limpiando datos de ejecuciones anteriores...');
-  
-  // Limpiar carpeta de screenshots
-  const screenshotsDir = './screenshots';
-  if (fs.existsSync(screenshotsDir)) {
-    const files = fs.readdirSync(screenshotsDir);
-    for (const file of files) {
-      const filePath = path.join(screenshotsDir, file);
-      const stat = fs.statSync(filePath);
-      if (stat.isDirectory()) {
-        // Eliminar directorio y su contenido
-        fs.rmSync(filePath, { recursive: true, force: true });
-      } else {
-        // Eliminar archivo
-        fs.unlinkSync(filePath);
+  try {
+    console.log('\n═══════════════════════════════════════════════════');
+    console.log('🎭 INICIANDO SUITE DE PRUEBAS - PAYNOVA AUTOMATION');
+    console.log('═══════════════════════════════════════════════════\n');
+    
+    // 🗑️ LIMPIAR DATOS DE EJECUCIONES ANTERIORES
+    console.log('🧹 Limpiando datos de ejecuciones anteriores...');
+    
+    // Limpiar carpeta de screenshots
+    const screenshotsDir = './screenshots';
+    if (fs.existsSync(screenshotsDir)) {
+      const files = fs.readdirSync(screenshotsDir);
+      for (const file of files) {
+        const filePath = path.join(screenshotsDir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+          // Eliminar directorio y su contenido
+          fs.rmSync(filePath, { recursive: true, force: true });
+        } else {
+          // Eliminar archivo
+          fs.unlinkSync(filePath);
+        }
       }
+      console.log('🗑️  Screenshots anteriores eliminados');
     }
-    console.log('🗑️  Screenshots anteriores eliminados');
+    
+    // NO limpiar solicitudes-creadas.json automáticamente
+    // Este archivo es necesario para los tests de aprobación que dependen
+    // de las solicitudes creadas en tests anteriores
+    // Se puede limpiar manualmente si es necesario
+    
+    console.log('✓ Limpieza completada\n');
+    
+    // Cargar variables de entorno
+    console.log('🔧 Cargando configuración...');
+    getEnv();
+    console.log('✓ Configuración cargada\n');
+    
+    // Crear directorios necesarios
+    const directories = ['./test-results', './test-results/reports', './test-results/json', './screenshots'];
+    directories.forEach(dir => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`✓ Directorio creado: ${dir}`);
+      }
+    });
+    
+    // Lanzar navegador (singleton compartido entre escenarios)
+    console.log('🚀 Inicializando navegador...');
+    global.browser = await invokeBrowser();
+    console.log('✅ Navegador inicializado correctamente\n');
+  } catch (error) {
+    console.error('\n❌ ERROR CRÍTICO EN BeforeAll:');
+    console.error(error);
+    if (error instanceof Error) {
+      console.error('Mensaje:', error.message);
+      console.error('Stack:', error.stack);
+    }
+    throw error; // Re-lanzar para que Cucumber muestre el error
   }
-  
-  // NO limpiar solicitudes-creadas.json automáticamente
-  // Este archivo es necesario para los tests de aprobación que dependen
-  // de las solicitudes creadas en tests anteriores
-  // Se puede limpiar manualmente si es necesario
-  
-  console.log('✓ Limpieza completada\n');
-  
-  // Cargar variables de entorno
-  getEnv();
-  
-  // Crear directorios necesarios
-  const directories = ['./test-results', './test-results/reports', './test-results/json', './screenshots'];
-  directories.forEach(dir => {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-      console.log(`✓ Directorio creado: ${dir}`);
-    }
-  });
-  
-  // Lanzar navegador (singleton compartido entre escenarios)
-  global.browser = await invokeBrowser();
 });
 
 Before(async function ({ pickle }) {
-  console.log('\n' + '═'.repeat(80));
-  console.log(`📋 ${pickle.name}`);
-  console.log('═'.repeat(80));
-  
-  // Resetear contador de pasos para este escenario
-  this.stepCounter = 0;
-  
-  // Crear nuevo contexto y página para cada escenario
-  global.context = await global.browser.newContext({
-    viewport: { width: 1920, height: 1080 }, // 📸 Viewport más grande para capturas completas
-    recordVideo: process.env.RECORD_VIDEO === 'true' ? {
-      dir: './test-results/videos/',
-      size: { width: 1920, height: 1080 }
-    } : undefined
-  });
-  
-  global.page = await global.context.newPage();
+  try {
+    console.log('\n' + '═'.repeat(80));
+    console.log(`📋 ${pickle.name}`);
+    console.log('═'.repeat(80));
+    
+    // Verificar que el navegador esté inicializado
+    if (!global.browser) {
+      throw new Error('❌ global.browser no está inicializado. El BeforeAll debe haber fallado.');
+    }
+    
+    // IMPORTANTE: Guardar información del escenario en el contexto para uso en steps
+    this.scenarioTitle = pickle.name || '';
+    this.scenarioTags = pickle.tags || [];
+    
+    // Capturar valores del esquema parametrizado desde el nombre del escenario
+    // Cuando Cucumber procesa un Scenario Outline, reemplaza los placeholders en el nombre
+    // Ejemplo: "Aprobador 1 - APROBAR Solicitud RESCATE POLIZA CON PRESTAMO con monto 20000 Dolares"
+    const scenarioName = pickle.name || '';
+    if (scenarioName.includes('con monto')) {
+      const montoMatch = scenarioName.match(/monto (\d+)/);
+      const monedaMatch = scenarioName.match(/(Soles|Dolares)/);
+      
+      if (montoMatch && monedaMatch) {
+        (this as any).monto = parseInt(montoMatch[1]);
+        (this as any).moneda = monedaMatch[1];
+        console.log(`   📋 Valores del esquema detectados: monto ${(this as any).monto} ${(this as any).moneda}`);
+      }
+    }
+    
+    // Resetear contador de pasos para este escenario
+    this.stepCounter = 0;
+    
+    // Crear nuevo contexto y página para cada escenario
+    console.log('📄 Creando nuevo contexto y página...');
+    global.context = await global.browser.newContext({
+      viewport: { width: 1920, height: 1080 }, // 📸 Viewport más grande para capturas completas
+      recordVideo: process.env.RECORD_VIDEO === 'true' ? {
+        dir: './test-results/videos/',
+        size: { width: 1920, height: 1080 }
+      } : undefined
+    });
+    
+    global.page = await global.context.newPage();
+    console.log('✅ Contexto y página creados correctamente');
+  } catch (error) {
+    console.error('\n❌ ERROR EN Before hook:');
+    console.error(error);
+    throw error; // Re-lanzar para que Cucumber muestre el error
+  }
 });
 
 After(async function ({ pickle, result }) {

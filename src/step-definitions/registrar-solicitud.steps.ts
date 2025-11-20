@@ -10,8 +10,8 @@ Given('que estoy autenticado en el sistema Paynova', async function() {
   const loginPage = new LoginPage(global.page);
   await loginPage.navigateToLogin();
   await loginPage.clickToggleTraditionalLogin();
-  await loginPage.enterUsername('adrian');
-  await loginPage.enterPassword('123');
+  await loginPage.enterUsername('evarasga');
+  await loginPage.enterPassword('Primeras20');
   await loginPage.clickLoginButton();
   const dashboardVisible = await loginPage.isLoginSuccessful();
   expect(dashboardVisible).toBeTruthy();
@@ -135,10 +135,75 @@ Then('debería ver el modal con correlativo e incidente', async function() {
     // Detectar área automáticamente por el correlativo
     const esVIDA = datosSolicitud.correlativo.toUpperCase().includes('VIDA');
     const area = esVIDA ? 'VIDA' : 'RRHH';
-    const usuarioDefault = esVIDA ? 'jcastroc' : 'adrian';
+    const usuarioDefault = esVIDA ? 'jcastroc' : 'evarasga';
     const memoDefault = esVIDA ? 'PAGO DE SOBREVIVENCIA' : 'JUICIO DE ALIMENTOS';
     const montoDefault = esVIDA ? 800 : 600;
     const monedaDefault = esVIDA ? 'Dolares' : 'Soles';
+    
+    // IMPORTANTE: Detectar acción y aprobador nivel desde los tags del escenario
+    // Usar los tags guardados en el hook Before
+    const scenarioTitle = this.scenarioTitle || '';
+    const tags = this.scenarioTags || [];
+    let accion: 'rechazar' | 'observar' | 'aprobar' = 'aprobar'; // Por defecto
+    let aprobadorNivel: 1 | 2 | 3 = 1; // Por defecto
+    
+    // Debug: mostrar tags disponibles y título
+    const tagNames = tags.map((tag: any) => {
+      if (typeof tag === 'string') return tag;
+      return tag.name || tag.toString();
+    }).join(', ');
+    console.log(`   🔍 Título escenario: "${scenarioTitle}"`);
+    console.log(`   🔍 Tags detectados: [${tagNames}]`);
+    
+    // Extraer todos los nombres de tags como strings para comparación
+    const tagStrings = tags.map((tag: any) => {
+      if (typeof tag === 'string') return tag.toLowerCase();
+      return (tag.name || tag.toString() || '').toLowerCase();
+    });
+    
+    // Detectar acción desde tags Y título del escenario (más robusto)
+    const tieneRechazarTag = tagStrings.some(tag => 
+      tag === '@rechazar' || tag === 'rechazar' || tag.includes('rechazar')
+    );
+    const tieneRechazarTitulo = scenarioTitle.toUpperCase().includes('RECHAZAR');
+    
+    const tieneObservarTag = tagStrings.some(tag => 
+      tag === '@observar' || tag === 'observar' || tag.includes('observar')
+    );
+    const tieneObservarTitulo = scenarioTitle.toUpperCase().includes('OBSERVAR');
+    
+    if (tieneRechazarTag || tieneRechazarTitulo) {
+      accion = 'rechazar';
+      console.log(`   ✅ Acción detectada: RECHAZAR`);
+    } else if (tieneObservarTag || tieneObservarTitulo) {
+      accion = 'observar';
+      console.log(`   ✅ Acción detectada: OBSERVAR`);
+    } else {
+      accion = 'aprobar'; // Por defecto o si tiene @aprobar
+      console.log(`   ✅ Acción detectada: APROBAR (por defecto)`);
+    }
+    
+    // Detectar aprobador nivel desde tags Y título del escenario
+    const tieneAprobador2Tag = tagStrings.some(tag => 
+      tag === '@aprobador2' || tag === 'aprobador2' || tag.includes('aprobador2')
+    );
+    const tieneAprobador2Titulo = scenarioTitle.includes('Aprobador 2') || scenarioTitle.includes('aprobador 2');
+    
+    const tieneAprobador3Tag = tagStrings.some(tag => 
+      tag === '@aprobador3' || tag === 'aprobador3' || tag.includes('aprobador3')
+    );
+    const tieneAprobador3Titulo = scenarioTitle.includes('Aprobador 3') || scenarioTitle.includes('aprobador 3');
+    
+    if (tieneAprobador3Tag || tieneAprobador3Titulo) {
+      aprobadorNivel = 3;
+      console.log(`   ✅ Aprobador Nivel detectado: 3`);
+    } else if (tieneAprobador2Tag || tieneAprobador2Titulo) {
+      aprobadorNivel = 2;
+      console.log(`   ✅ Aprobador Nivel detectado: 2`);
+    } else {
+      aprobadorNivel = 1; // Por defecto (Aprobador 1)
+      console.log(`   ✅ Aprobador Nivel detectado: 1 (por defecto)`);
+    }
     
     guardarSolicitudCreada({
       correlativo: datosSolicitud.correlativo,
@@ -148,8 +213,12 @@ Then('debería ver el modal con correlativo e incidente', async function() {
       monto: this.montoActual || montoDefault,
       moneda: this.monedaActual || monedaDefault,
       fechaCreacion: new Date().toISOString(),
-      usuario: usuarioDefault
+      usuario: usuarioDefault,
+      accion: accion,
+      aprobadorNivel: aprobadorNivel
     });
+    
+    console.log(`   📋 Solicitud guardada con Acción: ${accion}, Aprobador Nivel: ${aprobadorNivel}`);
   }
   
   // 📸 TOMAR SCREENSHOT DEL MODAL DE ÉXITO ANTES DE QUE SE CIERRE
