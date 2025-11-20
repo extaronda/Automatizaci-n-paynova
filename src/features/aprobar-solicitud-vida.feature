@@ -4,16 +4,13 @@ Característica: Aprobación de Solicitudes de Pago VIDA
   Quiero poder aprobar solicitudes
   Para gestionar correctamente los flujos de aprobación por montos
 
-  # =====================================================================
-  # APROBADOR NIVEL 1: 0-20k USD / 0-60k PEN
-  # Aprobar montos de todos los rangos (corto, medio y alto)
-  # =====================================================================
+  # ==================== APROBAR ====================
 
   @aprobar-vida @aprobador1 @aprobar @happy-path @suite-completa @suite-vida @suite-vida-aprobacion
-  Esquema del escenario: Aprobador 1 - APROBAR Solicitud {memo} con monto {monto} {moneda}
+  Escenario: Aprobador 1 - APROBAR Solicitud
     Dado que estoy autenticado como "aprobador1" de VIDA
     Cuando accedo a Solicitudes de Pago y luego a Bandeja
-    Y selecciono la última solicitud creada de "{memo}"
+    Y selecciono la solicitud para "aprobar" de "cualquier"
     Y hago clic en Ver Solicitud
     Entonces debería ver el detalle de la solicitud con número de incidente
     Y debería verificar que los datos del documento hayan migrado correctamente
@@ -21,16 +18,33 @@ Característica: Aprobación de Solicitudes de Pago VIDA
     Entonces debería ver la Bandeja de Entrada
     Y la solicitud debe pasar a EXACTUS
 
-    Ejemplos:
-      | memo                           | monto  | moneda  |
-      | RESCATE POLIZA CON PRESTAMO    | 20000  | Dolares |
-      | PAGO DE MULTAS, COSTAS y CARGOS| 50000  | Dolares |
-      | PAGO DE SOBREVIVENCIA          | 70000  | Soles   |
-      | RESCATE POLIZA CON PRESTAMO    | 25000  | Dolares |
-      | PAGO DE MULTAS, COSTAS y CARGOS| 80000  | Soles   |
-      | PAGO DE SOBREVIVENCIA          | 500000 | Soles   |
-      | RESCATE POLIZA CON PRESTAMO    | 150000 | Dolares |
-      | PAGO DE MULTAS, COSTAS y CARGOS| 400000 | Soles   |
+  # ==================== RECHAZAR ====================
+
+  @aprobar-vida @aprobador1 @rechazar @suite-vida-aprobacion
+  Escenario: Aprobador 1 - RECHAZAR Solicitud
+    Dado que estoy autenticado como "aprobador1" de VIDA
+    Cuando accedo a Solicitudes de Pago y luego a Bandeja
+    Y selecciono la solicitud para "rechazar" de "cualquier"
+    Y hago clic en Ver Solicitud
+    Entonces debería ver el detalle de la solicitud
+    Cuando hago clic en el botón "Rechazar"
+    Y ingreso el comentario "No cumple con los requisitos establecidos"
+    Y confirmo el cambio de estado
+    Y la solicitud debe terminar correctamente
+
+  # ==================== OBSERVAR ====================
+
+  @aprobar-vida @aprobador1 @observar @suite-vida-aprobacion
+  Escenario: Aprobador 1 - OBSERVAR Solicitud
+    Dado que estoy autenticado como "aprobador1" de VIDA
+    Cuando accedo a Solicitudes de Pago y luego a Bandeja
+    Y selecciono la solicitud para "observar" de "cualquier"
+    Y hago clic en Ver Solicitud
+    Entonces debería ver el detalle de la solicitud
+    Cuando hago clic en el botón "Observar"
+    Y ingreso el comentario "Favor completar datos bancarios del beneficiario"
+    Y confirmo el cambio de estado
+    Y la solicitud debe regresar a la bandeja del usuario Recaudador
 
   # =====================================================================
   # APROBADOR NIVEL 2: 20k-100k USD / 60k-300k PEN

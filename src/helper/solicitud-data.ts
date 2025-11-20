@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { getAprobadorVIDA } from './data-loader';
 
 interface SolicitudCreada {
   correlativo: string;
@@ -270,6 +271,90 @@ export function obtenerSolicitudPorMemoYMonto(
   
   // Si no hay coincidencia exacta, retornar la última del memo
   return solicitudesFiltradas[solicitudesFiltradas.length - 1] || null;
+}
+
+/**
+ * Obtiene cualquier solicitud por acción y aprobador nivel (sin especificar memo)
+ * Útil para aprobador1 que puede aprobar cualquier solicitud de su rango
+ * Filtra por rango de monto según el nivel del aprobador
+ */
+export function obtenerSolicitudPorAccionYNivel(
+  accion: 'rechazar' | 'observar' | 'aprobar',
+  aprobadorNivel: 1 | 2 | 3 = 1,
+  area?: string
+): SolicitudCreada | null {
+  if (!fs.existsSync(dataPath)) {
+    return null;
+  }
+  
+  const rawData = fs.readFileSync(dataPath, 'utf-8');
+  let solicitudes: SolicitudCreada[] = JSON.parse(rawData);
+  
+  if (solicitudes.length === 0) {
+    return null;
+  }
+  
+  // Filtrar por área si se proporciona
+  if (area) {
+    solicitudes = solicitudes.filter(s => s.area.toLowerCase() === area.toLowerCase());
+  }
+  
+  // Obtener rangos del aprobador para filtrar por monto
+  let solicitudesFiltradas: SolicitudCreada[] = [];
+  
+  try {
+    const aprobador = getAprobadorVIDA(aprobadorNivel);
+    
+    if (aprobador && aprobador.rangos) {
+      // Filtrar por acción Y rango de monto (el aprobadorNivel del JSON puede no coincidir)
+      solicitudesFiltradas = solicitudes.filter(s => {
+        if (s.accion !== accion) {
+          return false;
+        }
+        
+        // Verificar que el monto esté dentro del rango del aprobador
+        const monedaKey = s.moneda.toLowerCase() === 'soles' ? 'soles' : 'dolares';
+        const rango = aprobador.rangos[monedaKey];
+        
+        if (!rango) {
+          return false;
+        }
+        
+        return s.monto >= rango.min && s.monto <= rango.max;
+      });
+      
+      if (solicitudesFiltradas.length > 0) {
+        const solicitud = solicitudesFiltradas[solicitudesFiltradas.length - 1];
+        console.log(`   📋 Solicitud encontrada por acción, nivel y rango: ${solicitud.correlativo} (Acción: ${accion}, Aprobador Nivel: ${aprobadorNivel}, Memo: ${solicitud.memo}, Monto: ${solicitud.monto} ${solicitud.moneda})`);
+        return solicitud;
+      }
+    }
+  } catch (error) {
+    console.log(`   ⚠️  No se pudieron obtener rangos del aprobador, buscando sin filtro de monto...`);
+  }
+  
+  // Fallback: buscar solo por acción y aprobador nivel (sin filtro de monto)
+  solicitudesFiltradas = solicitudes.filter(s => 
+    s.accion === accion && s.aprobadorNivel === aprobadorNivel
+  );
+  
+  if (solicitudesFiltradas.length > 0) {
+    const solicitud = solicitudesFiltradas[solicitudesFiltradas.length - 1];
+    console.log(`   📋 Solicitud encontrada por acción y nivel (sin filtro de monto): ${solicitud.correlativo} (Acción: ${accion}, Aprobador Nivel: ${aprobadorNivel}, Memo: ${solicitud.memo})`);
+    return solicitud;
+  }
+  
+  // Último fallback: buscar solo por acción (sin nivel)
+  console.log(`⚠️  No se encontró con nivel exacto, buscando solo por acción...`);
+  solicitudesFiltradas = solicitudes.filter(s => s.accion === accion);
+  
+  if (solicitudesFiltradas.length > 0) {
+    const solicitud = solicitudesFiltradas[solicitudesFiltradas.length - 1];
+    console.log(`   📋 Solicitud encontrada solo por acción: ${solicitud.correlativo} (Acción: ${accion}, Memo: ${solicitud.memo})`);
+    return solicitud;
+  }
+  
+  return null;
 }
 
 /**

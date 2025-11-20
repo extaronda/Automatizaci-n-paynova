@@ -8,7 +8,7 @@ import { expect } from '@playwright/test';
 import { AprobarSolicitudPage } from '../pages/AprobarSolicitudPage';
 import { LoginPage } from '../pages/LoginPage';
 import { getAprobadorVIDA, determinarAprobadoresNecesarios } from '../helper/data-loader';
-import { obtenerUltimaSolicitud, obtenerSolicitudPorCorrelativo, obtenerSolicitudPorMemo, obtenerSolicitudPorMemoYAccion, obtenerSolicitudPorMemoYMonto } from '../helper/solicitud-data';
+import { obtenerUltimaSolicitud, obtenerSolicitudPorCorrelativo, obtenerSolicitudPorMemo, obtenerSolicitudPorMemoYAccion, obtenerSolicitudPorMemoYMonto, obtenerSolicitudPorAccionYNivel } from '../helper/solicitud-data';
 
 // ==================== ANTECEDENTES ====================
 
@@ -51,6 +51,78 @@ When('accedo a Solicitudes de Pago y luego a Bandeja', async function() {
   }
   await aprobarPage.navegarABandeja();
   console.log('   ✓ Navegado a Bandeja');
+});
+
+When('selecciono la solicitud para {string} de {string}', async function(accionTexto: string, memo: string) {
+  const aprobarPage = new AprobarSolicitudPage(global.page);
+  
+  // Normalizar acción
+  const accionTextoLower = accionTexto.toLowerCase();
+  let accion: 'rechazar' | 'observar' | 'aprobar' = 'aprobar';
+  if (accionTextoLower.includes('rechazar')) {
+    accion = 'rechazar';
+  } else if (accionTextoLower.includes('observar')) {
+    accion = 'observar';
+  } else if (accionTextoLower.includes('aprobar')) {
+    accion = 'aprobar';
+  }
+  
+  // Detectar aprobador nivel desde tags Y título
+  const scenarioTitle = this.scenarioTitle || '';
+  const tags = this.scenarioTags || [];
+  
+  const tagStrings = tags.map((tag: any) => {
+    if (typeof tag === 'string') return tag.toLowerCase();
+    return (tag.name || tag.toString() || '').toLowerCase();
+  });
+  
+  const tieneAprobador2Tag = tagStrings.some(tag => 
+    tag === '@aprobador2' || tag === 'aprobador2' || tag.includes('aprobador2')
+  );
+  const tieneAprobador2Titulo = scenarioTitle.includes('Aprobador 2') || scenarioTitle.includes('aprobador 2');
+  
+  const tieneAprobador3Tag = tagStrings.some(tag => 
+    tag === '@aprobador3' || tag === 'aprobador3' || tag.includes('aprobador3')
+  );
+  const tieneAprobador3Titulo = scenarioTitle.includes('Aprobador 3') || scenarioTitle.includes('aprobador 3');
+  
+  let aprobadorNivel: 1 | 2 | 3 = 1;
+  if (tieneAprobador3Tag || tieneAprobador3Titulo) {
+    aprobadorNivel = 3;
+  } else if (tieneAprobador2Tag || tieneAprobador2Titulo) {
+    aprobadorNivel = 2;
+  }
+  
+  // Buscar solicitud
+  let solicitud;
+  
+  // Si el memo es "cualquier", buscar solo por acción y nivel (sin memo específico)
+  if (memo.toLowerCase() === 'cualquier' || memo.toLowerCase() === 'any') {
+    console.log(`   🔍 Buscando cualquier solicitud con acción "${accion}" y aprobador nivel ${aprobadorNivel}...`);
+    solicitud = obtenerSolicitudPorAccionYNivel(accion, aprobadorNivel, 'VIDA');
+  } else {
+    // Buscar por memo y acción
+    solicitud = obtenerSolicitudPorMemoYAccion(memo, accion, aprobadorNivel, 'VIDA');
+    
+    // Si no encuentra, buscar solo por acción y nivel (sin memo específico) para aprobador1
+    if (!solicitud && aprobadorNivel === 1) {
+      console.log(`   ⚠️  No se encontró con memo específico, buscando cualquier solicitud con acción "${accion}" y aprobador nivel ${aprobadorNivel}...`);
+      solicitud = obtenerSolicitudPorAccionYNivel(accion, aprobadorNivel, 'VIDA');
+    }
+  }
+  
+  if (solicitud && solicitud.correlativo && solicitud.incidente) {
+    console.log(`   🔍 Buscando solicitud por Correlativo: ${solicitud.correlativo} o Incidente: ${solicitud.incidente} (Memo: ${solicitud.memo}, Acción: ${accion}, Aprobador Nivel: ${aprobadorNivel})`);
+    await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
+    console.log(`   ✓ Solicitud seleccionada por Correlativo/Incidente: ${solicitud.correlativo} / ${solicitud.incidente}`);
+    this.solicitudActual = solicitud;
+  } else {
+    throw new Error(
+      `❌ No se encontró solicitud guardada para acción "${accion}" y aprobador nivel ${aprobadorNivel}. ` +
+      `Asegúrate de ejecutar primero el test de registro que crea las solicitudes necesarias. ` +
+      `El archivo solicitudes-creadas.json debe contener solicitudes con accion: ${accion}, aprobadorNivel: ${aprobadorNivel}`
+    );
+  }
 });
 
 When('selecciono la última solicitud creada de {string}', async function(memo: string) {
@@ -349,7 +421,11 @@ Then('debería verificar que los datos del documento hayan migrado correctamente
 
 // ==================== ACCIONES DE APROBACIÓN ====================
 
-When('hago clic en el botón {string}', async function(botonNombre: string) {
+// NOTA: Esta definición SOLO maneja botones específicos de aprobación
+// Los botones "EDITAR SOLICITUD", "ACTUALIZAR", "ENVIAR" tienen definiciones
+// específicas en editar-solicitud-observada.steps.ts y NO deben coincidir aquí
+// Usamos regex específico para evitar ambigüedades - solo coincide con estos botones exactos
+When(/^hago clic en el botón "(Rechazar|Observar|APROBAR|Enviar)"$/, async function(botonNombre: string) {
   const aprobarPage = new AprobarSolicitudPage(global.page);
   
   if (botonNombre === 'Rechazar') {

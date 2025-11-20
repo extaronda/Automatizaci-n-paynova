@@ -14,11 +14,23 @@ export class AprobarSolicitudPage {
     // Navegación
     menuSolicitudPagos: 'button:has-text("Solicitud de Pagos")',
     linkBandeja: 'a:has-text("Bandeja")',
+    linkHistoricoPersonal: 'a[href="/solicitudes-pago/historico-personal"].submenu-item',
     
     // Bandeja
     tablaSolicitudes: 'table tbody tr',
     botonVerDetalle: 'button:has-text("👁️"), button[title*="Ver"], button[title*="Detalle"]',
     botonTrazabilidad: 'button:has-text("📋"), button[title*="Trazabilidad"]',
+    
+    // Histórico Personal
+    filtroBuscarSolicitud: 'input[placeholder*="Buscar Solicitud"], input[type="text"]:near(text="Buscar Solicitud")',
+    filtroEstado: 'select.form-select, select:near(text="Estado")',
+    filtroFechaDesde: 'input[type="date"]:near(text="Fecha Desde"), input[placeholder*="Fecha Desde"]',
+    filtroFechaHasta: 'input[type="date"]:near(text="Fecha Hasta"), input[placeholder*="Fecha Hasta"]',
+    botonBuscar: 'button:has-text("Buscar"), button:has-text("🔍 Buscar")',
+    botonLimpiarFiltros: 'button:has-text("Limpiar Filtros"), button:has-text("🧹 Limpiar Filtros")',
+    botonExportarExcel: 'button:has-text("Exportar Excel"), button:has-text("📊 Exportar Excel")',
+    tablaHistorico: 'table tbody tr',
+    columnasTablaHistorico: 'table thead th',
     
     // Detalle de Solicitud
     botonAprobar: 'button.btn-success:has-text("APROBAR")',
@@ -1054,5 +1066,238 @@ export class AprobarSolicitudPage {
     await this.page.locator(this.selectors.botonVolverBandeja).click();
     await this.page.waitForSelector(this.selectors.tablaSolicitudes, { state: 'visible', timeout: 10000 });
   }
+
+  // ==================== HISTÓRICO PERSONAL ====================
+
+  /**
+   * Navega a la página de Histórico Personal de Solicitudes de Pago
+   */
+  async navegarAHistoricoPersonal(): Promise<void> {
+    // Verificar si ya estamos en el histórico
+    const currentUrl = this.page.url();
+    if (currentUrl.includes('/solicitudes-pago/historico-personal')) {
+      await this.page.waitForSelector(this.selectors.tablaHistorico, { state: 'visible', timeout: 5000 });
+      return;
+    }
+    
+    // 1. Expandir menú Solicitud de Pagos
+    const menuButton = this.page.locator(this.selectors.menuSolicitudPagos);
+    await menuButton.waitFor({ state: 'visible', timeout: 3000 });
+    await menuButton.click();
+    
+    // 2. Esperar a que aparezca el submenu
+    await this.page.waitForSelector(this.selectors.linkHistoricoPersonal, { state: 'visible', timeout: 2000 });
+    
+    // 3. Hacer clic en Histórico Personal
+    const linkHistorico = this.page.locator(this.selectors.linkHistoricoPersonal);
+    await linkHistorico.click({ force: true });
+    
+    // 4. Esperar a que cargue la tabla del histórico
+    await this.page.waitForSelector(this.selectors.tablaHistorico, { state: 'visible', timeout: 5000 });
+    console.log('✓ Navegado a Histórico Personal');
+  }
+
+  /**
+   * Obtiene los filtros visibles en la página de histórico
+   */
+  async obtenerFiltrosVisibles(): Promise<string[]> {
+    const filtros: string[] = [];
+    
+    // Verificar cada filtro
+    const buscarSolicitud = await this.page.locator(this.selectors.filtroBuscarSolicitud).isVisible().catch(() => false);
+    if (buscarSolicitud) filtros.push('Buscar Solicitud');
+    
+    const estado = await this.page.locator(this.selectors.filtroEstado).isVisible().catch(() => false);
+    if (estado) filtros.push('Estado');
+    
+    const fechaDesde = await this.page.locator(this.selectors.filtroFechaDesde).isVisible().catch(() => false);
+    if (fechaDesde) filtros.push('Fecha Desde');
+    
+    const fechaHasta = await this.page.locator(this.selectors.filtroFechaHasta).isVisible().catch(() => false);
+    if (fechaHasta) filtros.push('Fecha Hasta');
+    
+    const botonBuscar = await this.page.locator(this.selectors.botonBuscar).isVisible().catch(() => false);
+    if (botonBuscar) filtros.push('Buscar');
+    
+    const botonLimpiar = await this.page.locator(this.selectors.botonLimpiarFiltros).isVisible().catch(() => false);
+    if (botonLimpiar) filtros.push('Limpiar Filtros');
+    
+    const botonExportar = await this.page.locator(this.selectors.botonExportarExcel).isVisible().catch(() => false);
+    if (botonExportar) filtros.push('Exportar Excel');
+    
+    return filtros;
+  }
+
+  /**
+   * Obtiene las columnas de la tabla de histórico
+   */
+  async obtenerColumnasTablaHistorico(): Promise<string[]> {
+    const columnas: string[] = [];
+    
+    const headers = await this.page.locator(this.selectors.columnasTablaHistorico).all();
+    
+    for (const header of headers) {
+      const texto = await header.textContent();
+      if (texto && texto.trim()) {
+        columnas.push(texto.trim());
+      }
+    }
+    
+    return columnas;
+  }
+
+  /**
+   * Obtiene los registros de la tabla de histórico
+   */
+  async obtenerRegistrosTablaHistorico(): Promise<any[]> {
+    const registros: any[] = [];
+    
+    // Obtener las columnas primero
+    const columnas = await this.obtenerColumnasTablaHistorico();
+    
+    // Obtener todas las filas de la tabla
+    const filas = await this.page.locator(this.selectors.tablaHistorico).all();
+    
+    for (const fila of filas) {
+      const registro: any = {};
+      const celdas = await fila.locator('td').all();
+      
+      for (let i = 0; i < celdas.length && i < columnas.length; i++) {
+        const valor = await celdas[i].textContent();
+        registro[columnas[i]] = valor?.trim() || '';
+      }
+      
+      registros.push(registro);
+    }
+    
+    return registros;
+  }
+
+  /**
+   * Busca una solicitud por correlativo en el filtro de búsqueda
+   */
+  async buscarPorCorrelativo(correlativo: string): Promise<void> {
+    // Buscar el input de búsqueda - buscar cerca del texto "Buscar Solicitud"
+    // Primero intentar con el selector específico
+    let buscarInput = this.page.locator(this.selectors.filtroBuscarSolicitud).first();
+    
+    // Si no se encuentra, buscar cualquier input cerca del texto "Buscar Solicitud"
+    const buscarInputVisible = await buscarInput.isVisible().catch(() => false);
+    if (!buscarInputVisible) {
+      // Buscar por contexto: input que está cerca del texto "Buscar Solicitud"
+      buscarInput = this.page.locator('input[type="text"], input[placeholder*="Buscar"]').first();
+    }
+    
+    await buscarInput.waitFor({ state: 'visible', timeout: 5000 });
+    await buscarInput.fill(correlativo);
+    console.log(`   ✓ Correlativo "${correlativo}" ingresado en búsqueda`);
+  }
+
+  /**
+   * Presiona el botón Buscar
+   */
+  async presionarBotonBuscar(): Promise<void> {
+    const botonBuscar = this.page.locator(this.selectors.botonBuscar);
+    await botonBuscar.waitFor({ state: 'visible', timeout: 5000 });
+    await botonBuscar.click();
+    
+    // Esperar a que se actualicen los resultados
+    await this.page.waitForTimeout(2000);
+    await this.page.waitForSelector(this.selectors.tablaHistorico, { state: 'visible', timeout: 10000 });
+    console.log('   ✓ Botón Buscar presionado');
+  }
+
+  /**
+   * Selecciona un estado en el filtro de Estado
+   */
+  async seleccionarEstado(estado: string): Promise<void> {
+    // Buscar el select nativo con clase form-select
+    const estadoSelect = this.page.locator('select.form-select').first();
+    await estadoSelect.waitFor({ state: 'visible', timeout: 5000 });
+    
+    // Mapear el estado al valor del option si es necesario
+    // Los valores en el select son: PENDIENTE_APROBACION, APROBADO, RECHAZADO, OBSERVADO
+    let valorOption = estado;
+    if (estado === 'APROBADO') {
+      valorOption = 'APROBADO';
+    } else if (estado === 'PENDIENTE') {
+      valorOption = 'PENDIENTE_APROBACION';
+    } else if (estado === 'RECHAZADO') {
+      valorOption = 'RECHAZADO';
+    } else if (estado === 'OBSERVADO') {
+      valorOption = 'OBSERVADO';
+    }
+    
+    // Seleccionar por valor del option
+    await estadoSelect.selectOption({ value: valorOption });
+    
+    console.log(`   ✓ Estado "${estado}" seleccionado (valor: ${valorOption})`);
+  }
+
+  /**
+   * Hace clic en el botón Exportar Excel y espera la descarga
+   */
+  async exportarAExcel(): Promise<string> {
+    // Configurar listener para la descarga ANTES de hacer clic
+    const downloadPromise = this.page.waitForEvent('download', { timeout: 30000 });
+    
+    // Hacer clic en el botón Exportar Excel
+    const botonExportar = this.page.locator(this.selectors.botonExportarExcel);
+    await botonExportar.waitFor({ state: 'visible', timeout: 5000 });
+    await botonExportar.click();
+    
+    console.log('   ✓ Botón Exportar Excel presionado, esperando descarga...');
+    
+    // Esperar la descarga
+    const download = await downloadPromise;
+    const nombreArchivo = download.suggestedFilename();
+    
+    console.log(`   ✓ Archivo descargado: ${nombreArchivo}`);
+    
+    return nombreArchivo;
+  }
+
+  /**
+   * Verifica que un registro existe en la tabla basándose en datos de solicitudes-creadas.json
+   */
+  async verificarRegistroEnTabla(correlativo: string): Promise<boolean> {
+    const registros = await this.obtenerRegistrosTablaHistorico();
+    
+    for (const registro of registros) {
+      const nSolicitud = registro['N° Solicitud'] || registro['N° Solicitud'] || '';
+      if (nSolicitud.includes(correlativo)) {
+        console.log(`   ✓ Registro encontrado: ${correlativo}`);
+        return true;
+      }
+    }
+    
+    console.log(`   ⚠️  Registro no encontrado: ${correlativo}`);
+    return false;
+  }
+
+  /**
+   * Verifica que todos los resultados tienen el estado especificado
+   */
+  async verificarEstadoEnResultados(estadoEsperado: string): Promise<boolean> {
+    const registros = await this.obtenerRegistrosTablaHistorico();
+    
+    if (registros.length === 0) {
+      console.log('   ⚠️  No hay registros para validar');
+      return false;
+    }
+    
+    for (const registro of registros) {
+      const estado = registro['Estado'] || '';
+      if (!estado.toLowerCase().includes(estadoEsperado.toLowerCase())) {
+        console.log(`   ⚠️  Registro con estado diferente encontrado: ${estado}`);
+        return false;
+      }
+    }
+    
+    console.log(`   ✓ Todos los ${registros.length} registros tienen estado "${estadoEsperado}"`);
+    return true;
+  }
+
+  
 }
 

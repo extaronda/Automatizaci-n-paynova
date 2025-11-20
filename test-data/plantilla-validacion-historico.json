@@ -1,0 +1,30 @@
+{
+  "filtros": {
+    "campos": [
+      "Buscar Solicitud",
+      "Estado",
+      "Fecha Desde",
+      "Fecha Hasta",
+      "Buscar",
+      "Limpiar Filtros",
+      "Exportar Excel"
+    ],
+    "descripcion": "Filtros disponibles en la página de Histórico Personal de Solicitudes de Pago"
+  },
+  "tablaHistorico": {
+    "columnas": [
+      "N° Solicitud",
+      "Descripción",
+      "Fecha Solicitud",
+      "Estado",
+      "Monto",
+      "Moneda",
+      "Tipo Memo",
+      "Última Acción",
+      "Creador",
+      "Acciones"
+    ],
+    "descripcion": "Columnas que deben existir en la tabla de Histórico Personal"
+  }
+}
+
