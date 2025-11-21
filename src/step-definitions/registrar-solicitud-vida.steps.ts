@@ -113,15 +113,31 @@ When('hago clic en ACTUALIZAR sin validar', async function() {
   // Esperar a que aparezca el modal (si hay error o confirmación)
   await registrarPage.page.waitForTimeout(2000);
   
-  // Intentar cerrar modal de error/confirmación
-  const btnEntendido = registrarPage.page.locator('button:has-text("Entendido")');
-  const entendidoVisible = await btnEntendido.isVisible({ timeout: 3000 }).catch(() => false);
+  // Intentar cerrar modal PrimeVue de error/confirmación
+  // Primero intentar con el nuevo modal PrimeVue
+  const modalPrimeVue = registrarPage.page.locator('.p-dialog, .isg__confirm__container').first();
+  const modalVisible = await modalPrimeVue.isVisible({ timeout: 3000 }).catch(() => false);
   
-  if (entendidoVisible) {
-    console.log('   🔔 Modal detectado, cerrando...');
-    await btnEntendido.click();
-    await registrarPage.page.waitForTimeout(1000);
-    console.log('   ✓ Modal cerrado (Entendido)');
+  if (modalVisible) {
+    console.log('   🔔 Modal PrimeVue detectado, cerrando...');
+    const btnAceptar = registrarPage.page.locator('.isg__confirm__button--accept, button:has-text("Aceptar")').first();
+    const btnVisible = await btnAceptar.isVisible({ timeout: 2000 }).catch(() => false);
+    if (btnVisible) {
+      await btnAceptar.click();
+      await registrarPage.page.waitForTimeout(1000);
+      console.log('   ✓ Modal cerrado (PrimeVue)');
+    }
+  } else {
+    // Fallback: intentar con botón "Entendido" (legacy)
+    const btnEntendido = registrarPage.page.locator('button:has-text("Entendido")');
+    const entendidoVisible = await btnEntendido.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (entendidoVisible) {
+      console.log('   🔔 Modal detectado (legacy), cerrando...');
+      await btnEntendido.click();
+      await registrarPage.page.waitForTimeout(1000);
+      console.log('   ✓ Modal cerrado (Entendido)');
+    }
   }
 });
 
@@ -134,16 +150,28 @@ When('hago clic en ACTUALIZAR', async function() {
   await registrarPage.page.waitForTimeout(2000);
   
   // Buscar el modal de error y capturar su texto
-  const modalError = registrarPage.page.locator('.modal:visible, [class*="modal"]:visible').first();
-  const modalVisible = await modalError.isVisible({ timeout: 3000 }).catch(() => false);
+  // Primero intentar con el nuevo modal PrimeVue
+  const modalPrimeVue = registrarPage.page.locator('.p-dialog, .isg__confirm__container').first();
+  const modalPrimeVueVisible = await modalPrimeVue.isVisible({ timeout: 3000 }).catch(() => false);
   
-  if (modalVisible) {
-    const modalTexto = await modalError.textContent() || '';
+  if (modalPrimeVueVisible) {
+    const mensajeModal = registrarPage.page.locator('.isg__confirm__message').first();
+    const modalTexto = await mensajeModal.textContent() || '';
     this.modalErrorTexto = modalTexto;
-    console.log(`   🚨 Modal de error detectado: "${modalTexto.substring(0, 100)}..."`);
+    console.log(`   🚨 Modal PrimeVue de error detectado: "${modalTexto.substring(0, 100)}..."`);
   } else {
-    this.modalErrorTexto = '';
-    console.log('   ⚠️ No se detectó modal de error');
+    // Fallback: buscar modal legacy
+    const modalError = registrarPage.page.locator('.modal:visible, [class*="modal"]:visible').first();
+    const modalVisible = await modalError.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (modalVisible) {
+      const modalTexto = await modalError.textContent() || '';
+      this.modalErrorTexto = modalTexto;
+      console.log(`   🚨 Modal de error detectado (legacy): "${modalTexto.substring(0, 100)}..."`);
+    } else {
+      this.modalErrorTexto = '';
+      console.log('   ⚠️ No se detectó modal de error');
+    }
   }
 });
 

@@ -48,6 +48,16 @@ export class AprobarSolicitudPage {
     textareaComentario: 'textarea, input[type="text"][placeholder*="comentario"], input[type="text"][placeholder*="observación"]',
     botonAceptarDocumento: 'button:has-text("Aceptar documento"), button:has-text("Aceptar Orden")',
     botonConfirmarCambio: 'button:has-text("Confirmar Cambio"), button:has-text("Confirmar")',
+    
+    // NUEVO: Modal PrimeVue que reemplazó a las alertas nativas
+    modalPrimeVue: '.p-dialog, .isg__confirm__container',
+    modalPrimeVueTitulo: '.isg__confirm__title',
+    modalPrimeVueMensaje: '.isg__confirm__message',
+    modalPrimeVueAceptar: '.isg__confirm__button--accept, button:has-text("Aceptar")',
+    // Modal para ingresar comentario (Rechazar)
+    modalComentario: '.p-dialog:has-text("comentario"), .p-dialog:has-text("Rechazar"), .modal:has-text("Rechazar")',
+    modalComentarioInput: '.p-dialog textarea, .p-dialog input[type="text"]',
+    modalComentarioConfirmar: '.p-dialog button:has-text("Confirmar"), .p-dialog button:has-text("Aceptar")',
   };
 
   // ==================== NAVEGACIÓN ====================
@@ -747,8 +757,8 @@ export class AprobarSolicitudPage {
   // ==================== ACCIONES DE APROBACIÓN ====================
 
   /**
-   * Hace clic en APROBAR/ENVIAR y maneja el diálogo de confirmación
-   * IMPORTANTE: Configurar el listener ANTES del clic para capturar el alert nativo
+   * Hace clic en APROBAR/ENVIAR y maneja el modal de confirmación
+   * IMPORTANTE: Ahora usa modal PrimeVue en lugar de alertas nativas
    * Espera a que se procese la solicitud completamente antes de continuar
    */
 
@@ -757,19 +767,52 @@ export class AprobarSolicitudPage {
     await botonAprobar.waitFor({ state: 'visible', timeout: 5000 });
     console.log('   ✓ Botón APROBAR encontrado y visible');
   
-    // Registrar un handler que se ejecute una sola vez
-    console.log('   ⏳ Configurando listener para diálogo...');
-    this.page.once('dialog', async dialog => {
-      const mensajeDialogo = dialog.message();
-      console.log(`   📋 Diálogo detectado: ${mensajeDialogo}`);
-      await dialog.accept();
-      console.log('   ✅ Diálogo ACEPTADO correctamente');
-    });
-  
-    // Hacer click — el dialog será aceptado por el handler registrado
+    // Hacer clic en APROBAR
     console.log('   🖱️  Haciendo clic en botón APROBAR...');
     await botonAprobar.click();
     console.log('   ✓ Clic realizado');
+  
+    // Esperar a que aparezca el nuevo modal PrimeVue de confirmación
+    try {
+      console.log('   ⏳ Esperando modal PrimeVue de confirmación...');
+      const modalPrimeVue = this.page.locator(this.selectors.modalPrimeVue).first();
+      await modalPrimeVue.waitFor({ state: 'visible', timeout: 10000 });
+      console.log('   ✓ Modal PrimeVue de confirmación apareció');
+      
+      // Obtener el mensaje del modal
+      const mensajeModal = this.page.locator(this.selectors.modalPrimeVueMensaje).first();
+      const textoModal = await mensajeModal.textContent() || '';
+      console.log(`   📋 Mensaje del modal: ${textoModal.substring(0, 100)}...`);
+      
+      // Cerrar el modal haciendo clic en "Aceptar"
+      const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
+      await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
+      await botonAceptar.click();
+      console.log('   ✅ Modal de confirmación ACEPTADO');
+      
+      // Esperar a que el modal se cierre
+      await this.page.waitForSelector(this.selectors.modalPrimeVue, { 
+        state: 'hidden', 
+        timeout: 5000 
+      }).catch(() => {
+        console.log('   ⚠️  Modal puede haberse cerrado ya');
+      });
+    } catch (error) {
+      // Fallback: intentar con diálogo nativo (compatibilidad hacia atrás)
+      console.log('   ⚠️  Modal PrimeVue no encontrado, intentando con diálogo nativo...');
+      try {
+        this.page.once('dialog', async dialog => {
+          const mensajeDialogo = dialog.message();
+          console.log(`   📋 Diálogo detectado: ${mensajeDialogo}`);
+          await dialog.accept();
+          console.log('   ✅ Diálogo ACEPTADO correctamente');
+        });
+        // Esperar un momento para que aparezca el diálogo
+        await this.page.waitForTimeout(1000);
+      } catch (fallbackError) {
+        console.log('   ⚠️  No se detectó ni modal ni diálogo, continuando...');
+      }
+    }
   
     // IMPORTANTE: Esperar tiempo suficiente para que el backend procese completamente
     console.log('   ⏳ Esperando procesamiento del backend...');
@@ -800,37 +843,82 @@ export class AprobarSolicitudPage {
 
   /**
    * Hace clic en RECHAZAR, ingresa comentario y confirma
-   * IMPORTANTE: El diálogo es un window.prompt() nativo que permite ingresar texto
-   * Similar a APROBAR pero con prompt en lugar de confirm
+   * IMPORTANTE: Ahora usa modal PrimeVue en lugar de window.prompt() nativo
+   * Flujo: 1) Clic en RECHAZAR → 2) Aparece modal PrimeVue con input de comentario → 
+   *        3) Llenar comentario → 4) Clic en Confirmar → 5) Aparece modal de confirmación → 6) Aceptar
    */
   async clickRechazar(comentario: string): Promise<void> {
     const botonRechazar = this.page.locator('button.btn-danger').first();
     await botonRechazar.waitFor({ state: 'visible', timeout: 5000 });
     console.log('   ✓ Botón RECHAZAR encontrado y visible');
   
-    // Registrar un handler que se ejecute una sola vez para el prompt
-    console.log('   ⏳ Configurando listener para diálogo prompt...');
-    this.page.once('dialog', async dialog => {
-      const mensajeDialogo = dialog.message();
-      console.log(`   📋 Diálogo prompt detectado: ${mensajeDialogo}`);
-      // El diálogo es un prompt, aceptarlo con el comentario
-      await dialog.accept(comentario);
-      console.log(`   ✅ Diálogo prompt ACEPTADO con comentario: ${comentario}`);
-    });
-  
-    // Hacer click — el dialog será aceptado por el handler registrado
+    // Paso 1: Hacer clic en RECHAZAR
     console.log('   🖱️  Haciendo clic en botón RECHAZAR...');
     await botonRechazar.click();
     console.log('   ✓ Clic realizado');
   
-    // Esperar segundo diálogo de confirmación (similar a APROBAR)
-    console.log('   ⏳ Esperando diálogo de confirmación...');
-    this.page.once('dialog', async dialog => {
-      const mensajeDialogo = dialog.message();
-      console.log(`   📋 Diálogo de confirmación detectado: ${mensajeDialogo}`);
-      await dialog.accept();
-      console.log('   ✅ Diálogo de confirmación ACEPTADO');
-    });
+    // Paso 2: Esperar a que aparezca el modal PrimeVue para ingresar comentario
+    try {
+      console.log('   ⏳ Esperando modal PrimeVue para comentario...');
+      const modalComentario = this.page.locator(this.selectors.modalPrimeVue).first();
+      await modalComentario.waitFor({ state: 'visible', timeout: 10000 });
+      console.log('   ✓ Modal PrimeVue de comentario apareció');
+      
+      // Paso 3: Llenar el comentario en el modal
+      const inputComentario = this.page.locator(this.selectors.modalComentarioInput).first();
+      await inputComentario.waitFor({ state: 'visible', timeout: 5000 });
+      await inputComentario.fill(comentario);
+      console.log(`   📝 Comentario ingresado: "${comentario}"`);
+      
+      // Paso 4: Hacer clic en Confirmar del modal
+      const botonConfirmar = this.page.locator(this.selectors.modalComentarioConfirmar).first();
+      await botonConfirmar.waitFor({ state: 'visible', timeout: 5000 });
+      await botonConfirmar.click();
+      console.log('   ✓ Clic en Confirmar realizado');
+      
+      // Paso 5: Esperar modal de confirmación final
+      await this.page.waitForTimeout(1000);
+      const modalConfirmacion = this.page.locator(this.selectors.modalPrimeVue).first();
+      await modalConfirmacion.waitFor({ state: 'visible', timeout: 10000 });
+      console.log('   ✓ Modal de confirmación apareció');
+      
+      // Paso 6: Aceptar el modal de confirmación
+      const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
+      await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
+      await botonAceptar.click();
+      console.log('   ✅ Modal de confirmación ACEPTADO');
+      
+      // Esperar a que el modal se cierre
+      await this.page.waitForSelector(this.selectors.modalPrimeVue, { 
+        state: 'hidden', 
+        timeout: 5000 
+      }).catch(() => {
+        console.log('   ⚠️  Modal puede haberse cerrado ya');
+      });
+    } catch (error) {
+      // Fallback: intentar con diálogo nativo prompt (compatibilidad hacia atrás)
+      console.log('   ⚠️  Modal PrimeVue no encontrado, intentando con diálogo nativo prompt...');
+      try {
+        this.page.once('dialog', async dialog => {
+          const mensajeDialogo = dialog.message();
+          console.log(`   📋 Diálogo prompt detectado: ${mensajeDialogo}`);
+          await dialog.accept(comentario);
+          console.log(`   ✅ Diálogo prompt ACEPTADO con comentario: ${comentario}`);
+        });
+        
+        // Esperar segundo diálogo de confirmación
+        this.page.once('dialog', async dialog => {
+          const mensajeDialogo = dialog.message();
+          console.log(`   📋 Diálogo de confirmación detectado: ${mensajeDialogo}`);
+          await dialog.accept();
+          console.log('   ✅ Diálogo de confirmación ACEPTADO');
+        });
+        
+        await this.page.waitForTimeout(1000);
+      } catch (fallbackError) {
+        console.log('   ⚠️  No se detectó ni modal ni diálogo, continuando...');
+      }
+    }
   
     // IMPORTANTE: Esperar tiempo suficiente para que el backend procese completamente
     console.log('   ⏳ Esperando procesamiento del backend...');
@@ -861,9 +949,9 @@ export class AprobarSolicitudPage {
 
   /**
    * Hace clic en OBSERVAR, ingresa comentario y confirma
-   * IMPORTANTE: OBSERVAR usa un modal en el DOM (NO es window.prompt)
+   * IMPORTANTE: OBSERVAR usa un modal en el DOM, y después aparece modal PrimeVue de confirmación
    * Flujo: 1) Clic en OBSERVAR → 2) Aparece modal con textarea → 3) Llenar textarea → 
-   *        4) Clic en "CONFIRMAR OBSERVACIÓN" → 5) Aparece diálogo nativo de confirmación → 6) Aceptar
+   *        4) Clic en "CONFIRMAR OBSERVACIÓN" → 5) Aparece modal PrimeVue de confirmación → 6) Aceptar
    */
   async clickObservar(comentario: string): Promise<void> {
     const botonObservar = this.page.locator('button.btn-warning').first();
@@ -888,21 +976,53 @@ export class AprobarSolicitudPage {
     await this.page.fill('textarea[placeholder*="observación"], textarea[placeholder*="observacion"]', comentario);
     console.log('   ✓ Comentario ingresado');
   
-    // Paso 4: Configurar listener para el diálogo de confirmación ANTES del clic
-    console.log('   ⏳ Configurando listener para diálogo de confirmación...');
-    this.page.once('dialog', async dialog => {
-      const mensajeDialogo = dialog.message();
-      console.log(`   📋 Diálogo de confirmación detectado: ${mensajeDialogo}`);
-      await dialog.accept();
-      console.log('   ✅ Diálogo de confirmación ACEPTADO');
-    });
-  
-    // Paso 5: Hacer clic en "CONFIRMAR OBSERVACIÓN"
+    // Paso 4: Hacer clic en "CONFIRMAR OBSERVACIÓN"
     console.log('   🖱️  Haciendo clic en CONFIRMAR OBSERVACIÓN...');
     const botonConfirmar = this.page.locator('button.btn-warning:has-text("CONFIRMAR OBSERVACIÓN")');
     await botonConfirmar.waitFor({ state: 'visible', timeout: 5000 });
     await botonConfirmar.click();
     console.log('   ✓ Clic en CONFIRMAR OBSERVACIÓN realizado');
+  
+    // Paso 5: Esperar modal PrimeVue de confirmación
+    try {
+      console.log('   ⏳ Esperando modal PrimeVue de confirmación...');
+      const modalConfirmacion = this.page.locator(this.selectors.modalPrimeVue).first();
+      await modalConfirmacion.waitFor({ state: 'visible', timeout: 10000 });
+      console.log('   ✓ Modal PrimeVue de confirmación apareció');
+      
+      // Obtener el mensaje del modal
+      const mensajeModal = this.page.locator(this.selectors.modalPrimeVueMensaje).first();
+      const textoModal = await mensajeModal.textContent() || '';
+      console.log(`   📋 Mensaje del modal: ${textoModal.substring(0, 100)}...`);
+      
+      // Paso 6: Aceptar el modal de confirmación
+      const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
+      await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
+      await botonAceptar.click();
+      console.log('   ✅ Modal de confirmación ACEPTADO');
+      
+      // Esperar a que el modal se cierre
+      await this.page.waitForSelector(this.selectors.modalPrimeVue, { 
+        state: 'hidden', 
+        timeout: 5000 
+      }).catch(() => {
+        console.log('   ⚠️  Modal puede haberse cerrado ya');
+      });
+    } catch (error) {
+      // Fallback: intentar con diálogo nativo (compatibilidad hacia atrás)
+      console.log('   ⚠️  Modal PrimeVue no encontrado, intentando con diálogo nativo...');
+      try {
+        this.page.once('dialog', async dialog => {
+          const mensajeDialogo = dialog.message();
+          console.log(`   📋 Diálogo de confirmación detectado: ${mensajeDialogo}`);
+          await dialog.accept();
+          console.log('   ✅ Diálogo de confirmación ACEPTADO');
+        });
+        await this.page.waitForTimeout(1000);
+      } catch (fallbackError) {
+        console.log('   ⚠️  No se detectó ni modal ni diálogo, continuando...');
+      }
+    }
   
     // Paso 6: Esperar la consecuencia (navegación o volver a la bandeja)
     // IMPORTANTE: Esperar tiempo suficiente para que el backend procese completamente
@@ -933,22 +1053,50 @@ export class AprobarSolicitudPage {
 
   /**
    * Confirma el envío/aprobación (para Aprobadores 2 y 3)
-   * IMPORTANTE: El diálogo ya fue disparado por el clic en "Enviar" (que llama a clickAprobar)
-   * Este método solo espera y acepta el diálogo, luego espera el procesamiento
+   * IMPORTANTE: Ahora usa modal PrimeVue en lugar de diálogo nativo
+   * El modal ya debería estar apareciendo después del clic en "Enviar" (que llama a clickAprobar)
+   * Este método solo espera y acepta el modal, luego espera el procesamiento
    */
   async confirmarEnvio(): Promise<void> {
-    // El diálogo ya debería estar apareciendo después del clic en "Enviar"
-    // Esperar y aceptar el diálogo
-    console.log('   ⏳ Esperando diálogo de confirmación...');
+    // El modal PrimeVue ya debería estar apareciendo después del clic en "Enviar"
+    // Esperar y aceptar el modal
+    console.log('   ⏳ Esperando modal PrimeVue de confirmación...');
     try {
-      const dialog = await this.page.waitForEvent('dialog', { timeout: 5000 });
-      const mensajeDialogo = dialog.message();
-      console.log(`   📋 Diálogo detectado: ${mensajeDialogo}`);
-      await dialog.accept();
-      console.log('   ✅ Diálogo ACEPTADO correctamente');
+      const modalConfirmacion = this.page.locator(this.selectors.modalPrimeVue).first();
+      await modalConfirmacion.waitFor({ state: 'visible', timeout: 10000 });
+      console.log('   ✓ Modal PrimeVue de confirmación apareció');
+      
+      // Obtener el mensaje del modal
+      const mensajeModal = this.page.locator(this.selectors.modalPrimeVueMensaje).first();
+      const textoModal = await mensajeModal.textContent() || '';
+      console.log(`   📋 Mensaje del modal: ${textoModal.substring(0, 100)}...`);
+      
+      // Aceptar el modal
+      const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
+      await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
+      await botonAceptar.click();
+      console.log('   ✅ Modal de confirmación ACEPTADO');
+      
+      // Esperar a que el modal se cierre
+      await this.page.waitForSelector(this.selectors.modalPrimeVue, { 
+        state: 'hidden', 
+        timeout: 5000 
+      }).catch(() => {
+        console.log('   ⚠️  Modal puede haberse cerrado ya');
+      });
     } catch (error: any) {
-      // Si no hay diálogo, puede que ya se haya procesado o el flujo sea diferente
-      console.log('   ⚠️  No se detectó diálogo, continuando...');
+      // Fallback: intentar con diálogo nativo (compatibilidad hacia atrás)
+      console.log('   ⚠️  Modal PrimeVue no encontrado, intentando con diálogo nativo...');
+      try {
+        const dialog = await this.page.waitForEvent('dialog', { timeout: 5000 });
+        const mensajeDialogo = dialog.message();
+        console.log(`   📋 Diálogo detectado: ${mensajeDialogo}`);
+        await dialog.accept();
+        console.log('   ✅ Diálogo ACEPTADO correctamente');
+      } catch (fallbackError: any) {
+        // Si no hay diálogo, puede que ya se haya procesado o el flujo sea diferente
+        console.log('   ⚠️  No se detectó diálogo, continuando...');
+      }
     }
     
     // IMPORTANTE: Esperar tiempo suficiente para que el backend procese completamente

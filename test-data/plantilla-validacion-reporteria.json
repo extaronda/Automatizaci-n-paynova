@@ -1,0 +1,115 @@
+{
+  "filtros": {
+    "campos": [
+      "Fecha Inicio",
+      "Fecha Fin",
+      "Área",
+      "Memo",
+      "Beneficiario",
+      "Correlativo",
+      "Moneda",
+      "Incidente",
+      "Monto Mínimo",
+      "Monto Máximo",
+      "Aprobador",
+      "CONSULTAR",
+      "LIMPIAR",
+      "EXCEL"
+    ],
+    "descripcion": "Filtros disponibles en la página de Reportería de Solicitudes de Pago"
+  },
+  "tablaReporteria": {
+    "columnas": [
+      "Asunto",
+      "Correlativo",
+      "Incidente",
+      "Estado",
+      "Paso",
+      "Asiento",
+      "Código",
+      "Contratante",
+      "Solicitud",
+      "Área",
+      "Póliza",
+      "Liquidación",
+      "Pagar A",
+      "Uso",
+      "Origen",
+      "Cobertura",
+      "Asegurado",
+      "Siniestro",
+      "DNI",
+      "Beneficiario",
+      "Moneda",
+      "Monto",
+      "Banco",
+      "Cuenta",
+      "Tipo Cuenta",
+      "Tipo Pago",
+      "SubTipo Pago",
+      "Genera Archivo",
+      "Memo",
+      "Aprobadores",
+      "Firmante 2",
+      "Fecha de Pago",
+      "Fecha Creación",
+      "Numero Documento",
+      "Fecha Cheque",
+      "Numero Lote",
+      "Fecha Lote",
+      "Estado Lote",
+      "Observación Lote",
+      "Fecha de Pago",
+      "Estado de Pago",
+      "Respuesta del Banco",
+      "1 Registrar",
+      "2 Aprobar Autonomía 1",
+      "3 Grabar Exactus",
+      "Solicitud Aprobada",
+      "Fin Proceso",
+      "Solicitud Rechazada",
+      "Usuario Registra"
+    ],
+    "descripcion": "Columnas que deben existir en la tabla de Reportería"
+  },
+  "validacionesPorEstado": {
+    "APROBADO": {
+      "columnasObligatorias": [
+        "Asunto",
+        "Correlativo",
+        "Incidente",
+        "Estado",
+        "Paso",
+        "Asiento",
+        "Código",
+        "Contratante",
+        "Solicitud",
+        "Área",
+        "Póliza"
+      ],
+      "reglas": [
+        "El campo Asiento debe tener un valor (no puede ser vacío ni '-')",
+        "Todos los campos obligatorios deben tener valores válidos"
+      ]
+    },
+    "PENDIENTE_APROBACION": {
+      "columnasObligatorias": [
+        "Asunto",
+        "Correlativo",
+        "Incidente",
+        "Estado",
+        "Paso",
+        "Código",
+        "Contratante",
+        "Solicitud",
+        "Área",
+        "Póliza"
+      ],
+      "reglas": [
+        "El campo Asiento debe ser '-' (guion) cuando el estado es PENDIENTE_APROBACION",
+        "Todos los campos obligatorios deben tener valores válidos excepto Asiento"
+      ]
+    }
+  }
+}
+

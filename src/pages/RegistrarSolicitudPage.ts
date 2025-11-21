@@ -61,8 +61,14 @@ export class RegistrarSolicitudPage {
     mensajeValidacion: '.validation-message',
     mensajeError: '.error-message',
     modalConfirmacion: '.modal-confirmacion',
-    alertExito: '.alert.alert-success, .swal2-popup, .modal.show',
-    alertCorrelativo: '.alert:has-text("correlativo"), .modal-body:has-text("correlativo"), .swal2-html-container'
+    // NUEVO: Modal PrimeVue que reemplazó a las alertas nativas
+    modalPrimeVue: '.p-dialog, .isg__confirm__container',
+    modalPrimeVueTitulo: '.isg__confirm__title',
+    modalPrimeVueMensaje: '.isg__confirm__message',
+    modalPrimeVueAceptar: '.isg__confirm__button--accept, button:has-text("Aceptar")',
+    // Selectores legacy para compatibilidad
+    alertExito: '.alert.alert-success, .swal2-popup, .modal.show, .p-dialog',
+    alertCorrelativo: '.alert:has-text("correlativo"), .modal-body:has-text("correlativo"), .swal2-html-container, .isg__confirm__message:has-text("correlativo")'
   };
 
   constructor(page: Page) {
@@ -317,30 +323,90 @@ export class RegistrarSolicitudPage {
 
   /**
    * Espera y verifica el modal de confirmación con correlativo e incidente
+   * IMPORTANTE: Ahora usa modal PrimeVue en lugar de alertas nativas
    * @returns El texto del modal con correlativo e incidente
    */
   async esperarModalConfirmacion(): Promise<string> {
     console.log('⏳ Esperando modal de confirmación...');
     
-    // Esperar a que aparezca el modal/alert (puede tardar mientras procesa)
-    const modalLocator = this.page.locator(this.selectors.alertExito).first();
-    await modalLocator.waitFor({ state: 'visible', timeout: 30000 });
-    
-    // Obtener el texto completo del modal
-    const textoModal = await modalLocator.textContent() || '';
-    console.log(`✓ Modal de confirmación apareció: ${textoModal.substring(0, 100)}...`);
-    
-    // Verificar que contenga "correlativo" E "incidente" (ambos deben estar)
-    const tieneCorrelativo = textoModal.toLowerCase().includes('correlativo');
-    const tieneIncidente = textoModal.toLowerCase().includes('incidente');
-    const esExitoso = textoModal.toLowerCase().includes('exitosamente') || textoModal.toLowerCase().includes('exitosa');
-    
-    if ((tieneCorrelativo && tieneIncidente) || esExitoso) {
-      console.log('✓ Modal contiene información de correlativo/incidente');
-      return textoModal;
+    // Primero intentar con el nuevo modal PrimeVue
+    try {
+      const modalPrimeVue = this.page.locator(this.selectors.modalPrimeVue).first();
+      await modalPrimeVue.waitFor({ state: 'visible', timeout: 30000 });
+      console.log('✓ Modal PrimeVue detectado');
+      
+      // Obtener el mensaje del modal PrimeVue
+      const mensajeModal = this.page.locator(this.selectors.modalPrimeVueMensaje).first();
+      await mensajeModal.waitFor({ state: 'visible', timeout: 5000 });
+      const textoModal = await mensajeModal.textContent() || '';
+      
+      console.log(`✓ Modal de confirmación apareció: ${textoModal.substring(0, 100)}...`);
+      
+      // Verificar que contenga "correlativo" E "incidente" (ambos deben estar)
+      const tieneCorrelativo = textoModal.toLowerCase().includes('correlativo');
+      const tieneIncidente = textoModal.toLowerCase().includes('incidente');
+      const esExitoso = textoModal.toLowerCase().includes('exitosamente') || textoModal.toLowerCase().includes('exitosa');
+      
+      if ((tieneCorrelativo && tieneIncidente) || esExitoso) {
+        console.log('✓ Modal contiene información de correlativo/incidente');
+        return textoModal;
+      }
+      
+      throw new Error(`Modal no contiene información esperada. Texto: ${textoModal}`);
+    } catch (error) {
+      // Fallback a selectores legacy si el nuevo modal no aparece
+      console.log('⚠️  Modal PrimeVue no encontrado, intentando con selectores legacy...');
+      const modalLocator = this.page.locator(this.selectors.alertExito).first();
+      await modalLocator.waitFor({ state: 'visible', timeout: 30000 });
+      
+      const textoModal = await modalLocator.textContent() || '';
+      console.log(`✓ Modal de confirmación apareció (legacy): ${textoModal.substring(0, 100)}...`);
+      
+      const tieneCorrelativo = textoModal.toLowerCase().includes('correlativo');
+      const tieneIncidente = textoModal.toLowerCase().includes('incidente');
+      const esExitoso = textoModal.toLowerCase().includes('exitosamente') || textoModal.toLowerCase().includes('exitosa');
+      
+      if ((tieneCorrelativo && tieneIncidente) || esExitoso) {
+        console.log('✓ Modal contiene información de correlativo/incidente');
+        return textoModal;
+      }
+      
+      throw new Error(`Modal no contiene información esperada. Texto: ${textoModal}`);
     }
+  }
+  
+  /**
+   * Cierra el modal de confirmación haciendo clic en "Aceptar"
+   * IMPORTANTE: Ahora maneja el botón del modal PrimeVue
+   */
+  async cerrarModalConfirmacion(): Promise<void> {
+    console.log('🖱️  Cerrando modal de confirmación...');
     
-    throw new Error(`Modal no contiene información esperada. Texto: ${textoModal}`);
+    // Intentar con el nuevo botón PrimeVue primero
+    try {
+      const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
+      await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
+      await botonAceptar.click();
+      console.log('✓ Modal cerrado (PrimeVue)');
+      
+      // Esperar a que el modal se cierre
+      await this.page.waitForSelector(this.selectors.modalPrimeVue, { 
+        state: 'hidden', 
+        timeout: 5000 
+      }).catch(() => {
+        console.log('⚠️  Modal puede haberse cerrado ya');
+      });
+    } catch (error) {
+      // Fallback: buscar cualquier botón "Aceptar" o "OK"
+      const botonAceptar = this.page.locator('button:has-text("Aceptar"), button:has-text("OK"), button:has-text("Entendido")').first();
+      const visible = await botonAceptar.isVisible({ timeout: 3000 }).catch(() => false);
+      if (visible) {
+        await botonAceptar.click();
+        console.log('✓ Modal cerrado (fallback)');
+      } else {
+        console.log('⚠️  No se encontró botón para cerrar modal');
+      }
+    }
   }
 
   /**
@@ -468,14 +534,28 @@ export class RegistrarSolicitudPage {
 
   /**
    * Hace clic en "Guardar Seleccionado" del modal
+   * IMPORTANTE: Ahora maneja el nuevo modal PrimeVue que aparece después de guardar
    */
   async clickGuardarSeleccionado(): Promise<void> {
     await this.page.click('button:has-text("Guardar Seleccionado")');
-    // Esperar a que el modal se cierre
-    await this.page.waitForSelector('button:has-text("Guardar Seleccionado")', {
-      state: 'hidden',
-      timeout: 10000
-    });
+    
+    // Esperar a que aparezca el nuevo modal PrimeVue de confirmación
+    try {
+      const modalPrimeVue = this.page.locator(this.selectors.modalPrimeVue).first();
+      await modalPrimeVue.waitFor({ state: 'visible', timeout: 10000 });
+      console.log('✓ Modal de confirmación de guardado apareció');
+      
+      // Cerrar el modal haciendo clic en "Aceptar"
+      await this.cerrarModalConfirmacion();
+    } catch (error) {
+      // Fallback: esperar a que el modal de selección se cierre (comportamiento legacy)
+      await this.page.waitForSelector('button:has-text("Guardar Seleccionado")', {
+        state: 'hidden',
+        timeout: 10000
+      }).catch(() => {
+        console.log('⚠️  Modal puede haberse cerrado ya');
+      });
+    }
   }
 
   /**

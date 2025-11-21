@@ -129,6 +129,9 @@ Then('debería ver el modal con correlativo e incidente', async function() {
   expect(tieneCorrelativo || tieneIncidente || esExitoso).toBeTruthy();
   console.log('✓ Modal de confirmación verificado');
   
+  // IMPORTANTE: Cerrar el modal después de verificar
+  await registrarPage.cerrarModalConfirmacion();
+  
   // 📄 EXTRAER Y GUARDAR CORRELATIVO/INCIDENTE
   const datosSolicitud = extraerDatosSolicitud(textoModal);
   if (datosSolicitud) {
@@ -280,24 +283,41 @@ Then('debería ver error indicando bancos diferentes', async function() {
   await registrarPage.page.waitForTimeout(1500);
   
   // Buscar modal con mensaje de bancos diferentes
-  const modalSelectors = [
-    'text=/.*[Bb]ancos?.*[Dd]iferentes?.*/i',
-    'text=/.*[Nn]o se puede.*[Bb]anco.*/i',
-    'text=/.*[Mm]ismo.*[Bb]anco.*/i',
-    '.modal:has-text("banco")',
-    '.alert:has-text("banco")'
-  ];
+  // Primero intentar con el nuevo modal PrimeVue
+  const modalPrimeVue = registrarPage.page.locator('.p-dialog, .isg__confirm__container').first();
+  const modalPrimeVueVisible = await modalPrimeVue.isVisible({ timeout: 3000 }).catch(() => false);
   
   let modalVisible = false;
   let modalTexto = '';
   
-  for (const selector of modalSelectors) {
-    const isVisible = await registrarPage.page.locator(selector).isVisible({ timeout: 3000 }).catch(() => false);
-    if (isVisible) {
+  if (modalPrimeVueVisible) {
+    const mensajeModal = registrarPage.page.locator('.isg__confirm__message').first();
+    modalTexto = await mensajeModal.textContent() || '';
+    if (modalTexto.toLowerCase().includes('banco') && 
+        (modalTexto.toLowerCase().includes('diferente') || modalTexto.toLowerCase().includes('mismo'))) {
       modalVisible = true;
-      modalTexto = await registrarPage.page.locator(selector).first().textContent() || '';
-      console.log(`   ✓ Error detectado: "${modalTexto.substring(0, 80)}..."`);
-      break;
+      console.log(`   ✓ Error detectado (PrimeVue): "${modalTexto.substring(0, 80)}..."`);
+    }
+  }
+  
+  // Si no se encontró en PrimeVue, buscar con selectores legacy
+  if (!modalVisible) {
+    const modalSelectors = [
+      'text=/.*[Bb]ancos?.*[Dd]iferentes?.*/i',
+      'text=/.*[Nn]o se puede.*[Bb]anco.*/i',
+      'text=/.*[Mm]ismo.*[Bb]anco.*/i',
+      '.modal:has-text("banco")',
+      '.alert:has-text("banco")'
+    ];
+    
+    for (const selector of modalSelectors) {
+      const isVisible = await registrarPage.page.locator(selector).isVisible({ timeout: 3000 }).catch(() => false);
+      if (isVisible) {
+        modalVisible = true;
+        modalTexto = await registrarPage.page.locator(selector).first().textContent() || '';
+        console.log(`   ✓ Error detectado (legacy): "${modalTexto.substring(0, 80)}..."`);
+        break;
+      }
     }
   }
   
@@ -311,13 +331,24 @@ Then('debería ver error indicando bancos diferentes', async function() {
   });
   console.log('   📸 Screenshot de modal capturado');
   
-  // Cerrar el modal si tiene botón "Entendido" o similar
-  const btnCerrar = registrarPage.page.locator('button:has-text("Entendido"), button:has-text("Aceptar"), button:has-text("Cerrar")');
-  const btnVisible = await btnCerrar.isVisible({ timeout: 2000 }).catch(() => false);
-  if (btnVisible) {
-    await btnCerrar.first().click();
-    await registrarPage.page.waitForTimeout(500);
-    console.log('   ✓ Modal cerrado');
+  // Cerrar el modal - primero intentar con PrimeVue
+  if (modalPrimeVueVisible) {
+    const btnAceptar = registrarPage.page.locator('.isg__confirm__button--accept, button:has-text("Aceptar")').first();
+    const btnVisible = await btnAceptar.isVisible({ timeout: 2000 }).catch(() => false);
+    if (btnVisible) {
+      await btnAceptar.click();
+      await registrarPage.page.waitForTimeout(500);
+      console.log('   ✓ Modal cerrado (PrimeVue)');
+    }
+  } else {
+    // Fallback: cerrar modal legacy
+    const btnCerrar = registrarPage.page.locator('button:has-text("Entendido"), button:has-text("Aceptar"), button:has-text("Cerrar")');
+    const btnVisible = await btnCerrar.isVisible({ timeout: 2000 }).catch(() => false);
+    if (btnVisible) {
+      await btnCerrar.first().click();
+      await registrarPage.page.waitForTimeout(500);
+      console.log('   ✓ Modal cerrado (legacy)');
+    }
   }
 });
 
@@ -338,13 +369,27 @@ Then('debería ver error indicando monedas diferentes', async function() {
   });
   console.log('   📸 Screenshot de modal capturado');
   
-  // Cerrar el modal
-  const btnEntendido = global.page.locator('button:has-text("Entendido")');
-  const btnVisible = await btnEntendido.isVisible({ timeout: 2000 }).catch(() => false);
-  if (btnVisible) {
-    await btnEntendido.click();
-    await global.page.waitForTimeout(500);
-    console.log('   ✓ Modal cerrado');
+  // Cerrar el modal - primero intentar con PrimeVue
+  const modalPrimeVue = global.page.locator('.p-dialog, .isg__confirm__container').first();
+  const modalPrimeVueVisible = await modalPrimeVue.isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (modalPrimeVueVisible) {
+    const btnAceptar = global.page.locator('.isg__confirm__button--accept, button:has-text("Aceptar")').first();
+    const btnVisible = await btnAceptar.isVisible({ timeout: 2000 }).catch(() => false);
+    if (btnVisible) {
+      await btnAceptar.click();
+      await global.page.waitForTimeout(500);
+      console.log('   ✓ Modal cerrado (PrimeVue)');
+    }
+  } else {
+    // Fallback: cerrar modal legacy
+    const btnEntendido = global.page.locator('button:has-text("Entendido")');
+    const btnVisible = await btnEntendido.isVisible({ timeout: 2000 }).catch(() => false);
+    if (btnVisible) {
+      await btnEntendido.click();
+      await global.page.waitForTimeout(500);
+      console.log('   ✓ Modal cerrado (legacy)');
+    }
   }
 });
 

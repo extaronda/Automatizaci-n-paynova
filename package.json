@@ -17,6 +17,7 @@
     "test:tags": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js",
     "test:validar-detalle": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @validar-detalle",
     "test:validar-historico": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @validar-historico",
+    "test:validar-reporteria": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @validar-reporteria",
     "test:editar-observada": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @editar-observada",
     "test:aprobar": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags \"@aprobar-vida and @aprobar\"",
     "test:aprobar:aprobador1": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags \"@aprobador1 and @aprobar\"",
