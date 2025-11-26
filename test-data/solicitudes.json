@@ -280,6 +280,62 @@
       ]
     }
   },
+  "siniestros": {
+    "soat_interbank_dolares": {
+      "memo": "SOAT",
+      "requiere_modal": false,
+      "nombres": "Juan Pérez",
+      "dni": "12345678",
+      "siniestros": "SIN001",
+      "cobertura": "SOAT",
+      "moneda": "Dolares",
+      "monto": 20000,
+      "banco": "Interbank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890123"
+    },
+    "vehicular_scotiabank_dolares": {
+      "memo": "VEHICULAR",
+      "requiere_modal": false,
+      "nombres": "María González",
+      "dni": "87654321",
+      "siniestros": "SIN002",
+      "cobertura": "VEHICULAR",
+      "moneda": "Dolares",
+      "monto": 25000,
+      "banco": "Scotiabank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890"
+    },
+    "pago_multas_bcp_dolares": {
+      "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+      "requiere_modal": false,
+      "nombres": "Carlos Rodríguez",
+      "dni": "11223344",
+      "siniestros": "SIN003",
+      "cobertura": "MULTAS",
+      "moneda": "Dolares",
+      "monto": 50000,
+      "banco": "Banco de Crédito del Perú",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "98765432109876"
+    },
+    "pago_siniestro_vida_individual": {
+      "memo": "PAGO SINIESTRO VIDA INDIVIDUAL (Acsel-e)",
+      "requiere_modal": true,
+      "indice_registro_modal": 1,
+      "nombres": "Juan Pérez",
+      "dni": "45678912",
+      "poliza": "4393543295",
+      "siniestros": "SIN004",
+      "cobertura": "VIDA INDIVIDUAL",
+      "moneda": "Dolares",
+      "monto": 20000,
+      "banco": "Interbank",
+      "tipo_cuenta": "Ahorros",
+      "numero_cuenta": "1234567890123"
+    }
+  },
   "tipo_pago": {
     "tipo": "Transferencia",
     "codigo_tipo": "TR",

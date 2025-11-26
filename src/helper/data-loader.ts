@@ -63,6 +63,21 @@ export const getDatosVIDAPorIdentificador = (identificador: string): any => {
   return datosVIDA;
 };
 
+/**
+ * Obtiene datos de SINIESTROS por identificador
+ * @param identificador - Identificador del escenario (ej: "soat_interbank_dolares")
+ */
+export const getDatosSINIESTROSPorIdentificador = (identificador: string): any => {
+  const solicitudes = loadSolicitudes();
+  const datosSINIESTROS = solicitudes.siniestros?.[identificador];
+  
+  if (!datosSINIESTROS) {
+    throw new Error(`No se encontraron datos de SINIESTROS para el identificador: ${identificador}`);
+  }
+  
+  return datosSINIESTROS;
+};
+
 export const getUsuarioPorNombre = (nombreUsuario: string): Usuario => {
   const usuarios = loadUsuarios();
   

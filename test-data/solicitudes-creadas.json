@@ -262,5 +262,53 @@
     "usuario": "jcastroc",
     "accion": "aprobar",
     "aprobadorNivel": 1
+  },
+  {
+    "correlativo": "2025-SIN-3716",
+    "incidente": "633625",
+    "area": "RRHH",
+    "memo": "SOAT",
+    "monto": 20000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-25T23:24:48.937Z",
+    "usuario": "evarasga",
+    "accion": "aprobar",
+    "aprobadorNivel": 1
+  },
+  {
+    "correlativo": "2025-SIN-3717",
+    "incidente": "633626",
+    "area": "RRHH",
+    "memo": "SOAT",
+    "monto": 20000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-25T23:28:58.574Z",
+    "usuario": "evarasga",
+    "accion": "aprobar",
+    "aprobadorNivel": 1
+  },
+  {
+    "correlativo": "2025-SIN-3718",
+    "incidente": "633627",
+    "area": "RRHH",
+    "memo": "VEHICULAR",
+    "monto": 25000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-25T23:29:31.053Z",
+    "usuario": "evarasga",
+    "accion": "aprobar",
+    "aprobadorNivel": 1
+  },
+  {
+    "correlativo": "2025-SIN-3719",
+    "incidente": "633628",
+    "area": "RRHH",
+    "memo": "PAGO DE MULTAS, COSTAS y CARGOS",
+    "monto": 50000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-25T23:30:03.688Z",
+    "usuario": "evarasga",
+    "accion": "aprobar",
+    "aprobadorNivel": 1
   }
 ]

@@ -20,6 +20,20 @@
         "RESCATE POLIZA CON PRESTAMO",
         "PAGO DE MULTAS, COSTAS y CARGOS"
       ]
+    },
+    "siniestros": {
+      "username": "danivarg",
+      "password": "Primeras20",
+      "area": "SINIESTROS",
+      "rol": "Usuario SINIESTROS",
+      "memos": [
+        "SOAT",
+        "VEHICULAR",
+        "VIDA LEY",
+        "VIDA INDIVIDUAL FLEX",
+        "DESGRAVAMEN IBK",
+        "PAGO DE MULTAS, COSTAS y CARGOS"
+      ]
     }
   },
   "aprobadores": {

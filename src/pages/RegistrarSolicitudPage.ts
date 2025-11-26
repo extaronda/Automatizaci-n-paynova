@@ -251,6 +251,15 @@ export class RegistrarSolicitudPage {
     tipoCuenta: string,
     numeroCuenta: string
   ): Promise<void> {
+    // Esperar a que el select de banco esté visible y listo
+    await this.page.waitForSelector(this.selectors.selectBanco, { 
+      state: 'visible', 
+      timeout: 10000 
+    });
+    
+    // Esperar un momento adicional para que las opciones se carguen
+    await this.page.waitForTimeout(500);
+    
     // Obtener opciones de banco disponibles para debug
     const opcionesBanco = await this.page.locator(this.selectors.selectBanco + ' option').allTextContents();
     console.log(`Opciones de banco disponibles: ${opcionesBanco.join(', ')}`);
@@ -268,13 +277,34 @@ export class RegistrarSolicitudPage {
     await this.page.selectOption(this.selectors.selectBanco, { label: bancoMatch });
     console.log(`✓ Banco seleccionado: ${bancoMatch}`);
     
+    // Esperar un momento después de seleccionar el banco
+    await this.page.waitForTimeout(300);
+    
+    // Esperar a que el select de tipo de cuenta esté visible
+    await this.page.waitForSelector(this.selectors.selectTipoCuenta, { 
+      state: 'visible', 
+      timeout: 5000 
+    });
+    
     // Seleccionar tipo de cuenta
     await this.page.selectOption(this.selectors.selectTipoCuenta, { label: tipoCuenta });
     console.log(`✓ Tipo de cuenta seleccionado: ${tipoCuenta}`);
     
+    // Esperar un momento después de seleccionar el tipo de cuenta
+    await this.page.waitForTimeout(300);
+    
+    // Esperar a que el input de número de cuenta esté visible
+    await this.page.waitForSelector(this.selectors.inputNumeroCuenta, { 
+      state: 'visible', 
+      timeout: 5000 
+    });
+    
     // Ingresar número de cuenta
     await this.page.fill(this.selectors.inputNumeroCuenta, numeroCuenta);
     console.log(`✓ Número de cuenta ingresado: ${numeroCuenta}`);
+    
+    // Esperar un momento final para asegurar que todos los datos estén guardados
+    await this.page.waitForTimeout(300);
   }
 
   /**
@@ -309,7 +339,8 @@ export class RegistrarSolicitudPage {
    */
   async clickGuardar(): Promise<void> {
     await this.page.click(this.selectors.btnGuardar);
-    await this.page.waitForTimeout(1000);
+    // Esperar a que el registro se guarde en la grilla
+    await this.page.waitForTimeout(2000);
     console.log('✓ Click en GUARDAR');
   }
 
@@ -422,11 +453,17 @@ export class RegistrarSolicitudPage {
    */
   async isRegistroEnGrilla(): Promise<boolean> {
     try {
+      // Esperar un momento adicional para que la grilla se actualice
+      await this.page.waitForTimeout(1000);
+      
       // Esperar a que aparezca al menos una fila en la grilla
       await this.page.waitForSelector(this.selectors.filaRegistro, {
         state: 'visible',
-        timeout: 10000
+        timeout: 15000
       });
+      
+      // Esperar un momento más para asegurar que las filas estén completamente renderizadas
+      await this.page.waitForTimeout(500);
       
       // Contar filas en la grilla
       const filas = await this.page.locator(this.selectors.filaRegistro).count();
@@ -604,6 +641,19 @@ export class RegistrarSolicitudPage {
   }
 
   /**
+   * Ingresa datos específicos de SINIESTROS: Siniestros y Cobertura
+   * @param siniestros - Número o código de siniestros
+   * @param cobertura - Tipo de cobertura
+   */
+  async ingresarDatosSINIESTROS(siniestros: string, cobertura: string): Promise<void> {
+    // Ingresar siniestros - buscar por placeholder específico
+    await this.page.fill('input[placeholder*="número de siniestro"], input[placeholder*="siniestro"], input[placeholder*="Siniestro"], input[name*="siniestro"], input[id*="siniestro"]', siniestros);
+
+    // Ingresar cobertura - buscar por placeholder específico (ambos son inputs de texto)
+    await this.page.fill('input[placeholder*="cobertura"], input[placeholder*="Cobertura"], input[name*="cobertura"], input[id*="cobertura"]', cobertura);
+  }
+
+  /**
    * Completa el formulario de edición para VIDA
    */
   async completarFormularioVIDA(datos: {
@@ -621,6 +671,132 @@ export class RegistrarSolicitudPage {
 
     // Póliza y Contratante
     await this.ingresarDatosVIDA(datos.poliza, datos.contratante);
+
+    // Moneda
+    await this.seleccionarMoneda(datos.moneda);
+
+    // Monto
+    await this.ingresarMonto(datos.monto);
+
+    // Tipo = Transferencia (ya viene seleccionado, pero lo forzamos)
+    await this.page.selectOption(this.selectors.selectTipo, 'TR');
+
+    // Subtipo = TR (Transferencia a Terceros) - Esperar a que se carguen las opciones
+    await this.page.click(this.selectors.selectTipo); // Forzar carga de opciones
+    
+    // Esperar a que las opciones del subtipo se carguen (polling)
+    let optionCount = 0;
+    let attempts = 0;
+    while (optionCount <= 1 && attempts < 50) {
+      optionCount = await this.page.locator(this.selectors.selectSubtipo + ' option').count();
+      if (optionCount > 1) break;
+      await this.page.waitForTimeout(100);
+      attempts++;
+    }
+    
+    // Seleccionar subtipo
+    const options = await this.page.locator(this.selectors.selectSubtipo + ' option').allTextContents();
+    const matchingOption = options.find(opt => 
+      opt.trim().toLowerCase().includes('transferencia a terceros')
+    );
+    
+    if (matchingOption) {
+      await this.page.selectOption(this.selectors.selectSubtipo, { label: matchingOption });
+    }
+
+    // Esperar a que los campos bancarios aparezcan
+    await this.page.waitForSelector(this.selectors.selectBanco, { state: 'visible', timeout: 10000 });
+
+    // Datos bancarios
+    await this.ingresarDatosBancarios(datos.banco, datos.tipoCuenta, datos.numeroCuenta);
+  }
+
+  /**
+   * Llena el formulario completo de SINIESTROS directamente (sin modal)
+   * Similar a llenarFormularioCompleto de RRHH pero con campos adicionales: Siniestros y Cobertura
+   */
+  async llenarFormularioCompletoSINIESTROS(datos: {
+    nombres: string;
+    dni: string;
+    poliza?: string;
+    siniestros: string;
+    cobertura: string;
+    moneda: string;
+    monto: number;
+    banco: string;
+    tipoCuenta: string;
+    numeroCuenta: string;
+  }): Promise<void> {
+    // Nombres
+    await this.page.fill('input[placeholder*="nombres completos"], input[placeholder*="Nombres"]', datos.nombres);
+
+    // DNI
+    await this.page.fill('input[placeholder*="DNI"], input[placeholder*="RUC"]', datos.dni);
+
+    // Póliza (opcional)
+    if (datos.poliza) {
+      await this.page.fill('input[placeholder*="número de póliza"], input[placeholder*="póliza"], input[placeholder*="Póliza"]', datos.poliza);
+    }
+
+    // Siniestros y Cobertura (campos específicos de SINIESTROS)
+    await this.ingresarDatosSINIESTROS(datos.siniestros, datos.cobertura);
+
+    // Moneda
+    await this.seleccionarMoneda(datos.moneda);
+
+    // Monto
+    await this.ingresarMonto(datos.monto);
+
+    // Tipo = Transferencia (ya viene seleccionado, pero lo forzamos)
+    await this.page.selectOption(this.selectors.selectTipo, 'TR');
+
+    // Subtipo = Transferencia a Terceros
+    await this.seleccionarSubtipo('Transferencia a Terceros');
+
+    // Esperar un momento adicional para que los campos bancarios estén completamente listos
+    await this.page.waitForTimeout(500);
+
+    // Datos bancarios
+    await this.ingresarDatosBancarios(datos.banco, datos.tipoCuenta, datos.numeroCuenta);
+    
+    // Esperar un momento final para asegurar que todo esté guardado
+    await this.page.waitForTimeout(300);
+    
+    console.log('✓ Formulario completo SINIESTROS llenado');
+  }
+
+  /**
+   * Completa el formulario de edición para SINIESTROS (después de seleccionar del modal)
+   * Similar a VIDA pero con campos adicionales: Siniestros y Cobertura
+   * Cuando viene del modal, también debe llenar: Nombres, DNI/RUC, Póliza
+   */
+  async completarFormularioSINIESTROS(datos: {
+    nombres?: string;
+    dni: string;
+    poliza?: string;
+    siniestros: string;
+    cobertura: string;
+    moneda: string;
+    monto: number;
+    banco: string;
+    tipoCuenta: string;
+    numeroCuenta: string;
+  }): Promise<void> {
+    // Nombres (si viene del modal)
+    if (datos.nombres) {
+      await this.page.fill('input[placeholder*="nombres completos"], input[placeholder*="Nombres"]', datos.nombres);
+    }
+
+    // DNI
+    await this.page.fill('input[placeholder*="DNI"], input[placeholder*="RUC"]', datos.dni);
+
+    // Póliza (si viene del modal)
+    if (datos.poliza) {
+      await this.page.fill('input[placeholder*="número de póliza"], input[placeholder*="póliza"], input[placeholder*="Póliza"]', datos.poliza);
+    }
+
+    // Siniestros y Cobertura (campos específicos de SINIESTROS)
+    await this.ingresarDatosSINIESTROS(datos.siniestros, datos.cobertura);
 
     // Moneda
     await this.seleccionarMoneda(datos.moneda);
