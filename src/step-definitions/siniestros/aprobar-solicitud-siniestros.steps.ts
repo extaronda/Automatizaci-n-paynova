@@ -1,19 +1,20 @@
 /**
- * Step Definitions para Aprobar Solicitud VIDA
+ * Step Definitions para Aprobar Solicitud SINIESTROS
  * Maneja diálogos nativos del navegador correctamente
+ * Similar a aprobar-solicitud-vida.steps.ts pero para área SINIESTROS
  */
 
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { AprobarSolicitudPage } from '../pages/AprobarSolicitudPage';
-import { LoginPage } from '../pages/LoginPage';
-import { getAprobadorVIDA, determinarAprobadoresNecesarios } from '../helper/data-loader';
-import { obtenerUltimaSolicitud, obtenerSolicitudPorCorrelativo, obtenerSolicitudPorMemo, obtenerSolicitudPorMemoYAccion, obtenerSolicitudPorMemoYMonto, obtenerSolicitudPorAccionYNivel } from '../helper/solicitud-data';
+import { AprobarSolicitudPage } from '../../pages/AprobarSolicitudPage';
+import { LoginPage } from '../../pages/LoginPage';
+import { getAprobadorSINIESTROS, determinarAprobadoresNecesarios } from '../../helper/data-loader';
+import { obtenerUltimaSolicitud, obtenerSolicitudPorCorrelativo, obtenerSolicitudPorMemo, obtenerSolicitudPorMemoYAccion, obtenerSolicitudPorMemoYMonto, obtenerSolicitudPorAccionYNivel, obtenerTodasLasSolicitudesPorAccionYNivel } from '../../helper/solicitud-data';
 
 // ==================== ANTECEDENTES ====================
 
-Given('que estoy autenticado como {string} de VIDA', async function(aprobadorNombre: string) {
-  const aprobador = getAprobadorVIDA(parseInt(aprobadorNombre.replace('aprobador', '')));
+Given('que estoy autenticado como {string} de SINIESTROS', async function(aprobadorNombre: string) {
+  const aprobador = getAprobadorSINIESTROS(parseInt(aprobadorNombre.replace('aprobador', '')));
   const loginPage = new LoginPage(global.page);
   
   await loginPage.navigateToLogin();
@@ -96,33 +97,90 @@ When('selecciono la solicitud para {string} de {string}', async function(accionT
   // Buscar solicitud
   let solicitud;
   
-  // Si el memo es "cualquier", buscar solo por acción y nivel (sin memo específico)
+  // Obtener todas las solicitudes que coincidan (no solo la última)
+  let todasLasSolicitudes: any[] = [];
+  
   if (memo.toLowerCase() === 'cualquier' || memo.toLowerCase() === 'any') {
     console.log(`   🔍 Buscando cualquier solicitud con acción "${accion}" y aprobador nivel ${aprobadorNivel}...`);
-    solicitud = obtenerSolicitudPorAccionYNivel(accion, aprobadorNivel, 'VIDA');
+    todasLasSolicitudes = obtenerTodasLasSolicitudesPorAccionYNivel(accion, aprobadorNivel, 'SINIESTROS');
   } else {
     // Buscar por memo y acción
-    solicitud = obtenerSolicitudPorMemoYAccion(memo, accion, aprobadorNivel, 'VIDA');
-    
-    // Si no encuentra, buscar solo por acción y nivel (sin memo específico) para aprobador1
-    if (!solicitud && aprobadorNivel === 1) {
+    const solicitudMemo = obtenerSolicitudPorMemoYAccion(memo, accion, aprobadorNivel, 'SINIESTROS');
+    if (solicitudMemo) {
+      todasLasSolicitudes = [solicitudMemo];
+    } else if (aprobadorNivel === 1) {
       console.log(`   ⚠️  No se encontró con memo específico, buscando cualquier solicitud con acción "${accion}" y aprobador nivel ${aprobadorNivel}...`);
-      solicitud = obtenerSolicitudPorAccionYNivel(accion, aprobadorNivel, 'VIDA');
+      todasLasSolicitudes = obtenerTodasLasSolicitudesPorAccionYNivel(accion, aprobadorNivel, 'SINIESTROS');
     }
   }
   
-  if (solicitud && solicitud.correlativo && solicitud.incidente) {
-    console.log(`   🔍 Buscando solicitud por Correlativo: ${solicitud.correlativo} o Incidente: ${solicitud.incidente} (Memo: ${solicitud.memo}, Acción: ${accion}, Aprobador Nivel: ${aprobadorNivel})`);
-    await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
-    console.log(`   ✓ Solicitud seleccionada por Correlativo/Incidente: ${solicitud.correlativo} / ${solicitud.incidente}`);
-    this.solicitudActual = solicitud;
-  } else {
+  if (todasLasSolicitudes.length === 0) {
     throw new Error(
-      `❌ No se encontró solicitud guardada para acción "${accion}" y aprobador nivel ${aprobadorNivel}. ` +
+      `❌ No se encontró ninguna solicitud guardada para acción "${accion}" y aprobador nivel ${aprobadorNivel}. ` +
       `Asegúrate de ejecutar primero el test de registro que crea las solicitudes necesarias. ` +
       `El archivo solicitudes-creadas.json debe contener solicitudes con accion: ${accion}, aprobadorNivel: ${aprobadorNivel}`
     );
   }
+  
+  // Mezclar aleatoriamente las solicitudes para no tomar siempre la misma
+  todasLasSolicitudes = todasLasSolicitudes.sort(() => Math.random() - 0.5);
+  
+  // Buscar una solicitud que NO esté aprobada y que tenga el monto correcto
+  let solicitudValida = null;
+  const aprobador = getAprobadorSINIESTROS(aprobadorNivel);
+  
+  for (const solicitudCandidata of todasLasSolicitudes) {
+    if (!solicitudCandidata.correlativo || !solicitudCandidata.incidente) {
+      continue;
+    }
+    
+    console.log(`   🔍 Verificando solicitud ${solicitudCandidata.correlativo}...`);
+    
+    // Verificar Paso Actual y monto desde la bandeja
+    const infoBandeja = await aprobarPage.obtenerPasoActualYMontoDesdeBandeja(solicitudCandidata.correlativo, solicitudCandidata.incidente);
+    
+    if (!infoBandeja.pasoActual) {
+      console.log(`   ⚠️  Solicitud ${solicitudCandidata.correlativo} no encontrada en la bandeja, probando siguiente...`);
+      continue;
+    }
+    
+    // Verificar que el Paso Actual NO sea "APROBADO" (si la acción es aprobar)
+    if (accion === 'aprobar' && infoBandeja.pasoActual.toUpperCase().includes('APROBADO')) {
+      console.log(`   ⚠️  Solicitud ${solicitudCandidata.correlativo} ya está APROBADA (Paso Actual: ${infoBandeja.pasoActual}), probando siguiente...`);
+      continue;
+    }
+    
+    // Verificar que el monto esté dentro del rango del aprobador
+    if (infoBandeja.monto && infoBandeja.moneda) {
+      const monedaKey = infoBandeja.moneda.toLowerCase() === 'soles' ? 'soles' : 'dolares';
+      const rango = aprobador.rangos[monedaKey];
+      
+      if (rango && (infoBandeja.monto < rango.min || infoBandeja.monto > rango.max)) {
+        console.log(`   ⚠️  Solicitud ${solicitudCandidata.correlativo} tiene monto ${infoBandeja.monto} ${infoBandeja.moneda} fuera del rango (${rango.min} - ${rango.max}), probando siguiente...`);
+        continue;
+      }
+    }
+    
+    // Si llegamos aquí, la solicitud es válida
+    solicitudValida = solicitudCandidata;
+    console.log(`   ✓ Solicitud válida encontrada: ${solicitudValida.correlativo} (Paso Actual: ${infoBandeja.pasoActual}, Monto: ${infoBandeja.monto || 'N/A'} ${infoBandeja.moneda || ''})`);
+    break;
+  }
+  
+  if (!solicitudValida) {
+    throw new Error(
+      `❌ No se encontró ninguna solicitud válida para acción "${accion}" y aprobador nivel ${aprobadorNivel}. ` +
+      `Todas las solicitudes encontradas ya están aprobadas, fuera de rango o no están en la bandeja. ` +
+      `Por favor, ejecuta primero el test de registro para crear nuevas solicitudes pendientes.`
+    );
+  }
+  
+  // Ahora sí, entrar al detalle de la solicitud válida
+  console.log(`   🔍 Entrando al detalle de la solicitud: ${solicitudValida.correlativo} / ${solicitudValida.incidente}`);
+  await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitudValida.correlativo, solicitudValida.incidente);
+  console.log(`   ✓ Solicitud seleccionada por Correlativo/Incidente: ${solicitudValida.correlativo} / ${solicitudValida.incidente}`);
+  
+  this.solicitudActual = solicitudValida;
 });
 
 When('selecciono la última solicitud creada de {string}', async function(memo: string) {
@@ -176,23 +234,23 @@ When('selecciono la última solicitud creada de {string}', async function(memo: 
   // Si hay monto y moneda disponibles (esquema parametrizado), buscar por monto también
   if (monto && moneda) {
     console.log(`   🔍 Buscando solicitud por memo "${memo}", monto ${monto} ${moneda} y aprobador nivel ${aprobadorNivel}...`);
-    solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, moneda, aprobadorNivel, 'VIDA');
+    solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, moneda, aprobadorNivel, 'SINIESTROS');
     
     // Si no encuentra con nivel exacto, buscar sin nivel
     if (!solicitud) {
-      solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, moneda, 1, 'VIDA');
+      solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, moneda, 1, 'SINIESTROS');
     }
   }
   
   // Si no encontró por monto o no hay monto, buscar por memo y acción
   if (!solicitud) {
-    solicitud = obtenerSolicitudPorMemoYAccion(memo, accion, aprobadorNivel, 'VIDA');
+    solicitud = obtenerSolicitudPorMemoYAccion(memo, accion, aprobadorNivel, 'SINIESTROS');
   }
   
   // Último fallback: buscar solo por memo
   if (!solicitud) {
     console.log(`   ⚠️  No se encontró con filtros, buscando solo por memo...`);
-    solicitud = obtenerSolicitudPorMemo(memo, 'VIDA');
+    solicitud = obtenerSolicitudPorMemo(memo, 'SINIESTROS');
   }
   
   if (solicitud && solicitud.correlativo && solicitud.incidente) {
@@ -246,24 +304,24 @@ When(/^selecciono la solicitud (.+) con monto (\d+) (Soles|Dolares)$/, async fun
   
   // Buscar por memo, monto y moneda
   console.log(`   🔍 Buscando solicitud por memo "${memo}", monto ${monto} ${moneda} y aprobador nivel ${aprobadorNivel}...`);
-  let solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, moneda, aprobadorNivel, 'VIDA');
+  let solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, moneda, aprobadorNivel, 'SINIESTROS');
   
   // Si no encuentra con nivel exacto, buscar sin nivel
   if (!solicitud) {
     console.log(`   ⚠️  No se encontró con nivel exacto, buscando sin nivel...`);
-    solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, moneda, 1, 'VIDA');
+    solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, moneda, 1, 'SINIESTROS');
   }
   
   // Si aún no encuentra por monto exacto, buscar por memo y acción (más flexible)
   if (!solicitud) {
     console.log(`   ⚠️  No se encontró por monto exacto, buscando por memo y acción "aprobar"...`);
-    solicitud = obtenerSolicitudPorMemoYAccion(memo, 'aprobar', aprobadorNivel, 'VIDA');
+    solicitud = obtenerSolicitudPorMemoYAccion(memo, 'aprobar', aprobadorNivel, 'SINIESTROS');
   }
   
   // Si aún no encuentra, buscar solo por memo (último recurso)
   if (!solicitud) {
     console.log(`   ⚠️  No se encontró por memo y acción, buscando solo por memo...`);
-    solicitud = obtenerSolicitudPorMemo(memo, 'VIDA');
+    solicitud = obtenerSolicitudPorMemo(memo, 'SINIESTROS');
   }
   
   if (solicitud && solicitud.correlativo && solicitud.incidente) {
@@ -282,7 +340,7 @@ When(/^selecciono la solicitud (.+) con monto (\d+) (Soles|Dolares)$/, async fun
 When('selecciono la solicitud con memo {string}', async function(memo: string) {
   const aprobarPage = new AprobarSolicitudPage(global.page);
   
-  // IMPORTANTE: Detectar la acción y aprobador nivel desde los tags del escenario Y título (usar los guardados en el hook Before)
+  // IMPORTANTE: Detectar la acción y aprobador nivel desde los tags del escenario Y título
   const scenarioTitle = this.scenarioTitle || '';
   const tags = this.scenarioTags || [];
   
@@ -297,7 +355,7 @@ When('selecciono la solicitud con memo {string}', async function(memo: string) {
     accion = 'aprobar';
   }
   
-  // Detectar aprobador nivel desde tags Y título (más robusto)
+  // Detectar aprobador nivel desde tags Y título
   const tagStrings = tags.map((tag: any) => {
     if (typeof tag === 'string') return tag.toLowerCase();
     return (tag.name || tag.toString() || '').toLowerCase();
@@ -321,8 +379,6 @@ When('selecciono la solicitud con memo {string}', async function(memo: string) {
   }
   
   // IMPORTANTE: Para Aprobador 2 o 3, buscar la solicitud que fue APROBADA por el aprobador anterior
-  // Aprobador 2 busca solicitud aprobada por Aprobador 1
-  // Aprobador 3 busca solicitud aprobada por Aprobador 2
   let solicitud;
   
   // Si hay monto y moneda guardados del step anterior (después de aprobar), usarlos
@@ -347,27 +403,27 @@ When('selecciono la solicitud con memo {string}', async function(memo: string) {
     // Si hay monto y moneda guardados, buscar por esos
     if (montoAprobado && monedaAprobada) {
       console.log(`   📋 Buscando solicitud aprobada por monto ${montoAprobado} ${monedaAprobada} (Memo: ${memo})`);
-      solicitud = obtenerSolicitudPorMemoYMonto(memo, montoAprobado, monedaAprobada, aprobadorNivel === 2 ? 2 : 3, 'VIDA');
+      solicitud = obtenerSolicitudPorMemoYMonto(memo, montoAprobado, monedaAprobada, aprobadorNivel === 2 ? 2 : 3, 'SINIESTROS');
       
       // Si no encuentra con nivel exacto, buscar sin nivel
       if (!solicitud) {
-        solicitud = obtenerSolicitudPorMemoYMonto(memo, montoAprobado, monedaAprobada, 1, 'VIDA');
+        solicitud = obtenerSolicitudPorMemoYMonto(memo, montoAprobado, monedaAprobada, 1, 'SINIESTROS');
       }
     }
     
     // Si aún no encuentra, buscar por acción del aprobador anterior
     if (!solicitud) {
       if (aprobadorNivel === 2) {
-        solicitud = obtenerSolicitudPorMemoYAccion(memo, 'aprobar', 1, 'VIDA');
+        solicitud = obtenerSolicitudPorMemoYAccion(memo, 'aprobar', 1, 'SINIESTROS');
         console.log(`   📋 Buscando solicitud aprobada por Aprobador 1 para Aprobador 2 (Memo: ${memo})`);
       } else if (aprobadorNivel === 3) {
-        solicitud = obtenerSolicitudPorMemoYAccion(memo, 'aprobar', 2, 'VIDA');
+        solicitud = obtenerSolicitudPorMemoYAccion(memo, 'aprobar', 2, 'SINIESTROS');
         console.log(`   📋 Buscando solicitud aprobada por Aprobador 2 para Aprobador 3 (Memo: ${memo})`);
       }
     }
   } else {
     // Aprobador 1: buscar por acción y nivel del escenario actual
-    solicitud = obtenerSolicitudPorMemoYAccion(memo, accion, aprobadorNivel, 'VIDA');
+    solicitud = obtenerSolicitudPorMemoYAccion(memo, accion, aprobadorNivel, 'SINIESTROS');
   }
   
   if (solicitud && solicitud.correlativo && solicitud.incidente) {
@@ -375,7 +431,7 @@ When('selecciono la solicitud con memo {string}', async function(memo: string) {
     try {
       await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
       console.log(`   ✓ Solicitud seleccionada: ${memo}`);
-      this.solicitudActual = solicitud; // Guardar en contexto
+      this.solicitudActual = solicitud;
     } catch (error) {
       // Si falla, intentar buscar directamente en la bandeja por memo
       console.log(`   ⚠️  No se encontró por correlativo/incidente, buscando directamente en bandeja por memo...`);
@@ -513,25 +569,16 @@ Then('la solicitud debe pasar a EXACTUS', async function() {
 
 // ==================== ESCENARIOS ESCALONADOS ====================
 
-// ==================== STEP CONSOLIDADO AUTOMÁTICO BASADO EN MONTO ====================
-// Este step determina automáticamente qué aprobadores necesitan aprobar según el monto y moneda
-// usando los rangos definidos en test-data/usuarios.json
-// 
-// IMPORTANTE: Este step DEBE estar ANTES de los steps específicos para que Cucumber lo encuentre primero
-// cuando procesa Scenario Outlines. Maneja tanto escenarios normales como Scenario Outlines.
-// Cuando Cucumber expande un Scenario Outline, los valores numéricos se mantienen como {int}
 Given('que la solicitud {string} con monto {int} {string} fue aprobada por Aprobador 1', async function(memo: string, monto: number, moneda: string) {
-  // Verificar que el navegador esté disponible
   if (!global.page) {
     throw new Error('❌ global.page no está inicializado. El navegador no se abrió correctamente.');
   }
   
-  // Normalizar moneda
   const monedaNormalizada = moneda.trim();
   const monedaParaBusqueda = monedaNormalizada === 'Soles' ? 'Soles' : 'Dolares';
   
   // Determinar automáticamente qué aprobadores necesitan aprobar según el monto
-  const aprobadoresNecesarios = determinarAprobadoresNecesarios(monto, monedaParaBusqueda, 'VIDA');
+  const aprobadoresNecesarios = determinarAprobadoresNecesarios(monto, monedaParaBusqueda, 'SINIESTROS');
   const nivelMaximo = Math.max(...aprobadoresNecesarios) as 1 | 2 | 3;
   
   console.log(`\n   🔄 ==========================================`);
@@ -543,8 +590,7 @@ Given('que la solicitud {string} con monto {int} {string} fue aprobada por Aprob
   console.log(`   🔄 Nivel máximo requerido: ${nivelMaximo}`);
   console.log(`   🔄 ==========================================\n`);
   
-  // Buscar la solicitud creada (usar el nivel máximo para la búsqueda)
-  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, monedaParaBusqueda, nivelMaximo, 'VIDA');
+  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, monedaParaBusqueda, nivelMaximo, 'SINIESTROS');
   
   if (!solicitud || !solicitud.correlativo) {
     throw new Error(`❌ No se encontró solicitud creada para ${memo} con monto ${monto} ${monedaParaBusqueda} (Aprobador Nivel: ${nivelMaximo}). Debe ejecutarse primero el test de registro.`);
@@ -555,13 +601,12 @@ Given('que la solicitud {string} con monto {int} {string} fue aprobada por Aprob
   const loginPage = new LoginPage(global.page);
   const aprobarPage = new AprobarSolicitudPage(global.page);
   
-  // Función auxiliar para aprobar con un aprobador específico
   const aprobarConAprobador = async (nivelAprobador: number, esUltimo: boolean = false) => {
     console.log(`\n   📋 ==========================================`);
     console.log(`   📋 PASO ${nivelAprobador}: APROBACIÓN POR APROBADOR ${nivelAprobador}`);
     console.log(`   📋 ==========================================\n`);
     
-    const aprobador = getAprobadorVIDA(nivelAprobador);
+    const aprobador = getAprobadorSINIESTROS(nivelAprobador);
     console.log(`   🔐 Iniciando login como Aprobador ${nivelAprobador}: ${aprobador.username}`);
     
     await loginPage.navigateToLogin();
@@ -577,13 +622,11 @@ Given('que la solicitud {string} con monto {int} {string} fue aprobada por Aprob
     await aprobarPage.navegarABandeja();
     console.log(`   ✓ En bandeja de solicitudes`);
     
-    // Buscar y seleccionar la solicitud
     console.log(`   🔍 Buscando solicitud por Monto: ${monto} ${monedaParaBusqueda}...`);
     try {
       await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
       console.log(`   ✓ Solicitud seleccionada por Correlativo/Incidente`);
     } catch (error) {
-      // Fallback: buscar por monto
       console.log(`   ⚠️  Buscando por monto como fallback...`);
       const encontrada = await global.page.evaluate(({ monto, moneda }: { monto: number; moneda: string }) => {
         // @ts-ignore - document existe en el contexto del navegador
@@ -619,7 +662,6 @@ Given('que la solicitud {string} con monto {int} {string} fue aprobada por Aprob
     await global.page.waitForTimeout(3000);
     console.log(`   ✅ Solicitud ${solicitud.correlativo} aprobada por Aprobador ${nivelAprobador}`);
     
-    // Cerrar sesión solo si no es el último aprobador
     if (!esUltimo) {
       console.log(`   🔄 Cerrando sesión para permitir login del siguiente aprobador...`);
       await loginPage.navigateToLogin();
@@ -629,14 +671,12 @@ Given('que la solicitud {string} con monto {int} {string} fue aprobada por Aprob
     }
   };
   
-  // Ejecutar aprobación secuencial para cada aprobador necesario
   for (let i = 0; i < aprobadoresNecesarios.length; i++) {
     const nivelAprobador = aprobadoresNecesarios[i];
     const esUltimo = i === aprobadoresNecesarios.length - 1;
     await aprobarConAprobador(nivelAprobador, esUltimo);
   }
   
-  // Guardar información para el siguiente paso
   this.memoAprobado = memo;
   this.montoAprobado = monto;
   this.monedaAprobada = monedaParaBusqueda;
@@ -646,20 +686,16 @@ Given('que la solicitud {string} con monto {int} {string} fue aprobada por Aprob
   console.log(`   ✅ ==========================================\n`);
 });
 
-// Steps para Aprobador 2 - Solicitud aprobada por Aprobador 1 (formato antiguo, mantener para compatibilidad)
 Given('que la solicitud {string} con monto {int} Soles fue aprobada por Aprobador {int}', async function(memo: string, monto: number, aprobadorNivel: number) {
-  // IMPORTANTE: Este step ejecuta realmente la aprobación por Aprobador 1 antes del test de Aprobador 2/3
   console.log(`   🔄 Ejecutando aprobación por Aprobador 1 para solicitud ${memo} (${monto} Soles)...`);
   
-  // Buscar la solicitud creada con este memo y monto (debe tener aprobadorNivel: 2 o 3)
-  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, 'Soles', aprobadorNivel === 2 ? 2 : 3, 'VIDA');
+  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, 'Soles', aprobadorNivel === 2 ? 2 : 3, 'SINIESTROS');
   
   if (!solicitud || !solicitud.correlativo) {
     throw new Error(`❌ No se encontró solicitud creada para ${memo} con monto ${monto} Soles (Aprobador Nivel: ${aprobadorNivel}). Debe ejecutarse primero el test de registro.`);
   }
   
-  // Login como Aprobador 1
-  const aprobador1 = getAprobadorVIDA(1);
+  const aprobador1 = getAprobadorSINIESTROS(1);
   const loginPage = new LoginPage(global.page);
   await loginPage.navigateToLogin();
   await loginPage.clickToggleTraditionalLogin();
@@ -670,24 +706,20 @@ Given('que la solicitud {string} con monto {int} Soles fue aprobada por Aprobado
   expect(dashboardVisible).toBeTruthy();
   console.log(`   ✓ Login como Aprobador 1: ${aprobador1.username}`);
   
-  // Navegar a bandeja y aprobar la solicitud
   const aprobarPage = new AprobarSolicitudPage(global.page);
   await aprobarPage.navegarABandeja();
   await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
   
-  // Aprobar la solicitud
   await aprobarPage.clickAprobar();
-  await global.page.waitForTimeout(3000); // Esperar procesamiento completo
+  await global.page.waitForTimeout(3000);
   
   console.log(`   ✓ Solicitud ${solicitud.correlativo} aprobada por Aprobador 1`);
   
-  // IMPORTANTE: Cerrar sesión explícitamente navegando a login y esperando que se cargue completamente
   console.log(`   🔄 Cerrando sesión para permitir login de Aprobador 2...`);
   await loginPage.navigateToLogin();
-  await global.page.waitForTimeout(2000); // Esperar que la página de login se cargue completamente
+  await global.page.waitForTimeout(2000);
   await global.page.waitForSelector('.toggle-login', { state: 'visible', timeout: 10000 });
   
-  // Guardar información para el siguiente paso (el correlativo/incidente sigue siendo el mismo después de aprobar)
   this.memoAprobado = memo;
   this.montoAprobado = monto;
   this.monedaAprobada = 'Soles';
@@ -696,18 +728,15 @@ Given('que la solicitud {string} con monto {int} Soles fue aprobada por Aprobado
 });
 
 Given('que la solicitud {string} con monto {int} Dolares fue aprobada por Aprobador {int}', async function(memo: string, monto: number, aprobadorNivel: number) {
-  // IMPORTANTE: Este step ejecuta realmente la aprobación por Aprobador 1 antes del test de Aprobador 2/3
   console.log(`   🔄 Ejecutando aprobación por Aprobador 1 para solicitud ${memo} (${monto} Dolares)...`);
   
-  // Buscar la solicitud creada con este memo y monto (debe tener aprobadorNivel: 2 o 3)
-  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, 'Dolares', aprobadorNivel === 2 ? 2 : 3, 'VIDA');
+  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, 'Dolares', aprobadorNivel === 2 ? 2 : 3, 'SINIESTROS');
   
   if (!solicitud || !solicitud.correlativo) {
     throw new Error(`❌ No se encontró solicitud creada para ${memo} con monto ${monto} Dolares (Aprobador Nivel: ${aprobadorNivel}). Debe ejecutarse primero el test de registro.`);
   }
   
-  // Login como Aprobador 1
-  const aprobador1 = getAprobadorVIDA(1);
+  const aprobador1 = getAprobadorSINIESTROS(1);
   const loginPage = new LoginPage(global.page);
   await loginPage.navigateToLogin();
   await loginPage.clickToggleTraditionalLogin();
@@ -718,24 +747,20 @@ Given('que la solicitud {string} con monto {int} Dolares fue aprobada por Aproba
   expect(dashboardVisible).toBeTruthy();
   console.log(`   ✓ Login como Aprobador 1: ${aprobador1.username}`);
   
-  // Navegar a bandeja y aprobar la solicitud
   const aprobarPage = new AprobarSolicitudPage(global.page);
   await aprobarPage.navegarABandeja();
   await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
   
-  // Aprobar la solicitud
   await aprobarPage.clickAprobar();
-  await global.page.waitForTimeout(3000); // Esperar procesamiento completo
+  await global.page.waitForTimeout(3000);
   
   console.log(`   ✓ Solicitud ${solicitud.correlativo} aprobada por Aprobador 1`);
   
-  // IMPORTANTE: Cerrar sesión explícitamente navegando a login y esperando que se cargue completamente
   console.log(`   🔄 Cerrando sesión para permitir login de Aprobador 2...`);
   await loginPage.navigateToLogin();
-  await global.page.waitForTimeout(2000); // Esperar que la página de login se cargue completamente
+  await global.page.waitForTimeout(2000);
   await global.page.waitForSelector('.toggle-login', { state: 'visible', timeout: 10000 });
   
-  // Guardar información para el siguiente paso (el correlativo/incidente sigue siendo el mismo después de aprobar)
   this.memoAprobado = memo;
   this.montoAprobado = monto;
   this.monedaAprobada = 'Dolares';
@@ -743,13 +768,10 @@ Given('que la solicitud {string} con monto {int} Dolares fue aprobada por Aproba
   this.incidenteAprobado = solicitud.incidente;
 });
 
-// Steps para Aprobador 3 - Solicitud aprobada por Aprobador 1 y 2
 Given('que la solicitud {string} con monto {int} Soles fue aprobada por Aprobador {int} y {int}', async function(memo: string, monto: number, aprobador1: number, aprobador2: number) {
-  // IMPORTANTE: Este step ejecuta realmente la aprobación por Aprobador 1 y luego Aprobador 2
   console.log(`   🔄 Ejecutando aprobación por Aprobador 1 y 2 para solicitud ${memo} (${monto} Soles)...`);
   
-  // Buscar la solicitud creada con este memo y monto (debe tener aprobadorNivel: 3)
-  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, 'Soles', 3, 'VIDA');
+  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, 'Soles', 3, 'SINIESTROS');
   
   if (!solicitud || !solicitud.correlativo) {
     throw new Error(`❌ No se encontró solicitud creada para ${memo} con monto ${monto} Soles (Aprobador Nivel: 3). Debe ejecutarse primero el test de registro.`);
@@ -760,7 +782,7 @@ Given('que la solicitud {string} con monto {int} Soles fue aprobada por Aprobado
   
   // PASO 1: Aprobación por Aprobador 1
   console.log(`   📋 Paso 1: Aprobación por Aprobador 1...`);
-  const aprobador1User = getAprobadorVIDA(1);
+  const aprobador1User = getAprobadorSINIESTROS(1);
   await loginPage.navigateToLogin();
   await loginPage.clickToggleTraditionalLogin();
   await loginPage.enterUsername(aprobador1User.username);
@@ -773,17 +795,16 @@ Given('que la solicitud {string} con monto {int} Soles fue aprobada por Aprobado
   await aprobarPage.navegarABandeja();
   await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
   await aprobarPage.clickAprobar();
-  await global.page.waitForTimeout(3000); // Esperar procesamiento completo
+  await global.page.waitForTimeout(3000);
   console.log(`   ✓ Solicitud ${solicitud.correlativo} aprobada por Aprobador 1`);
   
   // PASO 2: Aprobación por Aprobador 2
   console.log(`   📋 Paso 2: Aprobación por Aprobador 2...`);
-  // IMPORTANTE: Cerrar sesión explícitamente navegando a login y esperando que se cargue completamente
   console.log(`   🔄 Cerrando sesión para permitir login de Aprobador 2...`);
   await loginPage.navigateToLogin();
-  await global.page.waitForTimeout(2000); // Esperar que la página de login se cargue completamente
+  await global.page.waitForTimeout(2000);
   await global.page.waitForSelector('.toggle-login', { state: 'visible', timeout: 10000 });
-  const aprobador2User = getAprobadorVIDA(2);
+  const aprobador2User = getAprobadorSINIESTROS(2);
   await loginPage.clickToggleTraditionalLogin();
   await loginPage.enterUsername(aprobador2User.username);
   await loginPage.enterPassword(aprobador2User.password);
@@ -795,16 +816,14 @@ Given('que la solicitud {string} con monto {int} Soles fue aprobada por Aprobado
   await aprobarPage.navegarABandeja();
   await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
   await aprobarPage.clickAprobar();
-  await global.page.waitForTimeout(3000); // Esperar procesamiento completo
+  await global.page.waitForTimeout(3000);
   console.log(`   ✓ Solicitud ${solicitud.correlativo} aprobada por Aprobador 2`);
   
-  // IMPORTANTE: Cerrar sesión explícitamente navegando a login y esperando que se cargue completamente
   console.log(`   🔄 Cerrando sesión para permitir login de Aprobador 3...`);
   await loginPage.navigateToLogin();
-  await global.page.waitForTimeout(2000); // Esperar que la página de login se cargue completamente
+  await global.page.waitForTimeout(2000);
   await global.page.waitForSelector('.toggle-login', { state: 'visible', timeout: 10000 });
   
-  // Guardar información para el siguiente paso (el correlativo/incidente sigue siendo el mismo después de aprobar)
   this.memoAprobado = memo;
   this.montoAprobado = monto;
   this.monedaAprobada = 'Soles';
@@ -813,11 +832,9 @@ Given('que la solicitud {string} con monto {int} Soles fue aprobada por Aprobado
 });
 
 Given('que la solicitud {string} con monto {int} Dolares fue aprobada por Aprobador {int} y {int}', async function(memo: string, monto: number, aprobador1: number, aprobador2: number) {
-  // IMPORTANTE: Este step ejecuta realmente la aprobación por Aprobador 1 y luego Aprobador 2
   console.log(`   🔄 Ejecutando aprobación por Aprobador 1 y 2 para solicitud ${memo} (${monto} Dolares)...`);
   
-  // Buscar la solicitud creada con este memo y monto (debe tener aprobadorNivel: 3)
-  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, 'Dolares', 3, 'VIDA');
+  const solicitud = obtenerSolicitudPorMemoYMonto(memo, monto, 'Dolares', 3, 'SINIESTROS');
   
   if (!solicitud || !solicitud.correlativo) {
     throw new Error(`❌ No se encontró solicitud creada para ${memo} con monto ${monto} Dolares (Aprobador Nivel: 3). Debe ejecutarse primero el test de registro.`);
@@ -828,7 +845,7 @@ Given('que la solicitud {string} con monto {int} Dolares fue aprobada por Aproba
   
   // PASO 1: Aprobación por Aprobador 1
   console.log(`   📋 Paso 1: Aprobación por Aprobador 1...`);
-  const aprobador1User = getAprobadorVIDA(1);
+  const aprobador1User = getAprobadorSINIESTROS(1);
   await loginPage.navigateToLogin();
   await loginPage.clickToggleTraditionalLogin();
   await loginPage.enterUsername(aprobador1User.username);
@@ -841,17 +858,16 @@ Given('que la solicitud {string} con monto {int} Dolares fue aprobada por Aproba
   await aprobarPage.navegarABandeja();
   await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
   await aprobarPage.clickAprobar();
-  await global.page.waitForTimeout(3000); // Esperar procesamiento completo
+  await global.page.waitForTimeout(3000);
   console.log(`   ✓ Solicitud ${solicitud.correlativo} aprobada por Aprobador 1`);
   
   // PASO 2: Aprobación por Aprobador 2
   console.log(`   📋 Paso 2: Aprobación por Aprobador 2...`);
-  // IMPORTANTE: Cerrar sesión explícitamente navegando a login y esperando que se cargue completamente
   console.log(`   🔄 Cerrando sesión para permitir login de Aprobador 2...`);
   await loginPage.navigateToLogin();
-  await global.page.waitForTimeout(2000); // Esperar que la página de login se cargue completamente
+  await global.page.waitForTimeout(2000);
   await global.page.waitForSelector('.toggle-login', { state: 'visible', timeout: 10000 });
-  const aprobador2User = getAprobadorVIDA(2);
+  const aprobador2User = getAprobadorSINIESTROS(2);
   await loginPage.clickToggleTraditionalLogin();
   await loginPage.enterUsername(aprobador2User.username);
   await loginPage.enterPassword(aprobador2User.password);
@@ -863,16 +879,14 @@ Given('que la solicitud {string} con monto {int} Dolares fue aprobada por Aproba
   await aprobarPage.navegarABandeja();
   await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
   await aprobarPage.clickAprobar();
-  await global.page.waitForTimeout(3000); // Esperar procesamiento completo
+  await global.page.waitForTimeout(3000);
   console.log(`   ✓ Solicitud ${solicitud.correlativo} aprobada por Aprobador 2`);
   
-  // IMPORTANTE: Cerrar sesión explícitamente navegando a login y esperando que se cargue completamente
   console.log(`   🔄 Cerrando sesión para permitir login de Aprobador 3...`);
   await loginPage.navigateToLogin();
-  await global.page.waitForTimeout(2000); // Esperar que la página de login se cargue completamente
+  await global.page.waitForTimeout(2000);
   await global.page.waitForSelector('.toggle-login', { state: 'visible', timeout: 10000 });
   
-  // Guardar información para el siguiente paso (el correlativo/incidente sigue siendo el mismo después de aprobar)
   this.memoAprobado = memo;
   this.montoAprobado = monto;
   this.monedaAprobada = 'Dolares';
@@ -880,11 +894,8 @@ Given('que la solicitud {string} con monto {int} Dolares fue aprobada por Aproba
   this.incidenteAprobado = solicitud.incidente;
 });
 
-// Step eliminado - ahora se maneja en el step consolidado "fue aprobada por Aprobador 1"
-// que detecta automáticamente si es @aprobador3 y ejecuta también la aprobación del Aprobador 2
-
-Given('estoy autenticado como {string} de VIDA', async function(aprobadorNombre: string) {
-  const aprobador = getAprobadorVIDA(parseInt(aprobadorNombre.replace('aprobador', '')));
+Given('estoy autenticado como {string} de SINIESTROS', async function(aprobadorNombre: string) {
+  const aprobador = getAprobadorSINIESTROS(parseInt(aprobadorNombre.replace('aprobador', '')));
   const loginPage = new LoginPage(global.page);
   
   await loginPage.navigateToLogin();
@@ -897,4 +908,3 @@ Given('estoy autenticado como {string} de VIDA', async function(aprobadorNombre:
   expect(dashboardVisible).toBeTruthy();
   console.log(`   ✓ Login exitoso → ${aprobador.username} [${aprobador.rol}]`);
 });
-

@@ -25,6 +25,10 @@
     "test:aprobar:aprobador1": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags \"@aprobador1 and @aprobar\"",
     "test:aprobar:aprobador2": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags \"@aprobador2 and @aprobar\"",
     "test:aprobar:aprobador3": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags \"@aprobador3 and @aprobar\"",
+    "test:siniestros:aprobar": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.siniestros.js --tags \"@aprobar-siniestros\"",
+    "test:siniestros:aprobar:aprobador1": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.siniestros.js --tags \"@aprobador1 and @aprobar-siniestros\"",
+    "test:siniestros:aprobar:aprobador2": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.siniestros.js --tags \"@aprobador2 and @aprobar-siniestros\"",
+    "test:siniestros:aprobar:aprobador3": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.siniestros.js --tags \"@aprobador3 and @aprobar-siniestros\"",
     "test:fast": "cross-env ENV=uat BROWSER=chromium HEADLESS=true cucumber-js --config=config/cucumber.js --parallel 2",
     "test:suite:smoke": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @suite-smoke",
     "test:suite:rrhh": "cross-env ENV=uat BROWSER=chromium cucumber-js --config=config/cucumber.js --tags @suite-rrhh",
@@ -45,6 +49,7 @@
     "posttest:login": "npx ts-node src/helper/report.ts",
     "posttest:solicitud": "npx ts-node src/helper/report.ts",
     "posttest:vida": "npx ts-node src/helper/report.ts",
+    "posttest:siniestros": "npx ts-node src/helper/report.ts",
     "open:report": "start test-results/reports/index.html",
     "clean": "rmdir /s /q test-results node_modules 2>nul & del package-lock.json 2>nul || echo Cleaned",
     "clean:data": "powershell -ExecutionPolicy Bypass -File scripts/clean-data.ps1"

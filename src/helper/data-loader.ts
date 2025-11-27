@@ -29,6 +29,9 @@ interface Usuarios {
     vida: {
       [key: string]: Aprobador;
     };
+    siniestros?: {
+      [key: string]: Aprobador;
+    };
   };
   bancos: any;
 }
@@ -88,9 +91,15 @@ export const getUsuarioPorNombre = (nombreUsuario: string): Usuario => {
   }
   
   // Buscar en aprobadores VIDA
-  const aprobador = usuarios.aprobadores?.vida?.[nombreUsuario.toLowerCase()];
-  if (aprobador) {
-    return aprobador;
+  const aprobadorVIDA = usuarios.aprobadores?.vida?.[nombreUsuario.toLowerCase()];
+  if (aprobadorVIDA) {
+    return aprobadorVIDA;
+  }
+  
+  // Buscar en aprobadores SINIESTROS
+  const aprobadorSINIESTROS = usuarios.aprobadores?.siniestros?.[nombreUsuario.toLowerCase()];
+  if (aprobadorSINIESTROS) {
+    return aprobadorSINIESTROS;
   }
   
   throw new Error(`Usuario "${nombreUsuario}" no encontrado en test-data/usuarios.json`);
@@ -103,6 +112,18 @@ export const getAprobadorVIDA = (nivel: number): Aprobador => {
   
   if (!aprobador) {
     throw new Error(`Aprobador VIDA nivel ${nivel} no encontrado en test-data/usuarios.json`);
+  }
+  
+  return aprobador;
+};
+
+export const getAprobadorSINIESTROS = (nivel: number): Aprobador => {
+  const usuarios = loadUsuarios();
+  const aprobadorKey = `aprobador${nivel}`;
+  const aprobador = usuarios.aprobadores?.siniestros?.[aprobadorKey];
+  
+  if (!aprobador) {
+    throw new Error(`Aprobador SINIESTROS nivel ${nivel} no encontrado en test-data/usuarios.json`);
   }
   
   return aprobador;
@@ -135,10 +156,14 @@ export const determinarAprobadoresNecesarios = (monto: number, moneda: string, a
   const monedaLower = moneda.toLowerCase();
   const monedaKey = monedaLower === 'soles' ? 'soles' : 'dolares';
   
+  // Normalizar área: VIDA, RRHH (SINIESTROS), SINIESTROS
+  const areaLower = area.toLowerCase();
+  const areaKey = areaLower === 'rrhh' || areaLower === 'siniestros' ? 'siniestros' : 'vida';
+  
   // Obtener todos los aprobadores del área
-  const aprobadores = usuarios.aprobadores?.[area.toLowerCase()];
+  const aprobadores = usuarios.aprobadores?.[areaKey];
   if (!aprobadores) {
-    throw new Error(`No se encontraron aprobadores para el área: ${area}`);
+    throw new Error(`No se encontraron aprobadores para el área: ${area} (buscado como: ${areaKey})`);
   }
   
   // Ordenar aprobadores por nivel (1, 2, 3, 4...)

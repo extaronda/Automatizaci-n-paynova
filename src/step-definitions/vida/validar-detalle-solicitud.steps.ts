@@ -1,8 +1,8 @@
 import { Given, When, Then, DataTable } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { AprobarSolicitudPage } from '../pages/AprobarSolicitudPage';
-import { LoginPage } from '../pages/LoginPage';
-import { obtenerSolicitudPorMemoYAccion } from '../helper/solicitud-data';
+import { AprobarSolicitudPage } from '../../pages/AprobarSolicitudPage';
+import { LoginPage } from '../../pages/LoginPage';
+import { obtenerSolicitudPorMemoYAccion } from '../../helper/solicitud-data';
 import * as fs from 'fs';
 import * as path from 'path';
 

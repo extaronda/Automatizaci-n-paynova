@@ -1,8 +1,8 @@
 import { Given, When, Then, DataTable } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { RegistrarSolicitudPage } from '../pages/RegistrarSolicitudPage';
-import { LoginPage } from '../pages/LoginPage';
-import { extraerDatosSolicitud, guardarSolicitudCreada } from '../helper/solicitud-data';
+import { RegistrarSolicitudPage } from '../../pages/RegistrarSolicitudPage';
+import { LoginPage } from '../../pages/LoginPage';
+import { extraerDatosSolicitud, guardarSolicitudCreada } from '../../helper/solicitud-data';
 
 // ==================== ANTECEDENTES ====================
 
@@ -136,12 +136,34 @@ Then('debería ver el modal con correlativo e incidente', async function() {
   const datosSolicitud = extraerDatosSolicitud(textoModal);
   if (datosSolicitud) {
     // Detectar área automáticamente por el correlativo
-    const esVIDA = datosSolicitud.correlativo.toUpperCase().includes('VIDA');
-    const area = esVIDA ? 'VIDA' : 'RRHH';
-    const usuarioDefault = esVIDA ? 'jcastroc' : 'evarasga';
-    const memoDefault = esVIDA ? 'PAGO DE SOBREVIVENCIA' : 'JUICIO DE ALIMENTOS';
-    const montoDefault = esVIDA ? 800 : 600;
-    const monedaDefault = esVIDA ? 'Dolares' : 'Soles';
+    const correlativoUpper = datosSolicitud.correlativo.toUpperCase();
+    const esVIDA = correlativoUpper.includes('VIDA');
+    const esSINIESTROS = correlativoUpper.includes('SIN') || correlativoUpper.includes('SINIESTROS');
+    let area: string;
+    let usuarioDefault: string;
+    let memoDefault: string;
+    let montoDefault: number;
+    let monedaDefault: string;
+    
+    if (esVIDA) {
+      area = 'VIDA';
+      usuarioDefault = 'jcastroc';
+      memoDefault = 'PAGO DE SOBREVIVENCIA';
+      montoDefault = 800;
+      monedaDefault = 'Dolares';
+    } else if (esSINIESTROS) {
+      area = 'SINIESTROS';
+      usuarioDefault = 'evarasga';
+      memoDefault = 'SOAT';
+      montoDefault = 20000;
+      monedaDefault = 'Dolares';
+    } else {
+      area = 'RRHH';
+      usuarioDefault = 'evarasga';
+      memoDefault = 'JUICIO DE ALIMENTOS';
+      montoDefault = 600;
+      monedaDefault = 'Soles';
+    }
     
     // IMPORTANTE: Detectar acción y aprobador nivel desde los tags del escenario
     // Usar los tags guardados en el hook Before

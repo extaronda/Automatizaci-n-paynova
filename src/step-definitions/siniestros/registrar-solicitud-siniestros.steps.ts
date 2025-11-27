@@ -1,9 +1,9 @@
 import { Given, When, Then, DataTable } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { RegistrarSolicitudPage } from '../pages/RegistrarSolicitudPage';
-import { LoginPage } from '../pages/LoginPage';
-import { getUsuarioPorNombre, getDatosSINIESTROSPorIdentificador } from '../helper/data-loader';
-import { extraerDatosSolicitud, guardarSolicitudCreada } from '../helper/solicitud-data';
+import { RegistrarSolicitudPage } from '../../pages/RegistrarSolicitudPage';
+import { LoginPage } from '../../pages/LoginPage';
+import { getUsuarioPorNombre, getDatosSINIESTROSPorIdentificador } from '../../helper/data-loader';
+import { extraerDatosSolicitud, guardarSolicitudCreada } from '../../helper/solicitud-data';
 
 // ==================== ANTECEDENTES ====================
 // El step "que estoy autenticado como usuario {string}" está en registrar-solicitud-vida.steps.ts

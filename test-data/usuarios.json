@@ -106,6 +106,59 @@
           }
         }
       }
+    },
+    "siniestros": {
+      "aprobador1": {
+        "username": "alarosah",
+        "password": "Primeras20",
+        "area": "SINIESTROS",
+        "rol": "Aprobador Nivel 1",
+        "nivel": 1,
+        "rangos": {
+          "dolares": {
+            "min": 0,
+            "max": 20000
+          },
+          "soles": {
+            "min": 0,
+            "max": 60000
+          }
+        }
+      },
+      "aprobador2": {
+        "username": "sdelrio",
+        "password": "Primeras20",
+        "area": "SINIESTROS",
+        "rol": "Aprobador Nivel 2",
+        "nivel": 2,
+        "rangos": {
+          "dolares": {
+            "min": 20000,
+            "max": 100000
+          },
+          "soles": {
+            "min": 60000,
+            "max": 300000
+          }
+        }
+      },
+      "aprobador3": {
+        "username": "jmotta",
+        "password": "Primeras20",
+        "area": "SINIESTROS",
+        "rol": "Aprobador Nivel 3",
+        "nivel": 3,
+        "rangos": {
+          "dolares": {
+            "min": 100000,
+            "max": 6000000
+          },
+          "soles": {
+            "min": 300000,
+            "max": 2000000
+          }
+        }
+      }
     }
   },
   "bancos": {

@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { getAprobadorVIDA } from './data-loader';
+import { getAprobadorVIDA, getAprobadorSINIESTROS } from './data-loader';
 
 interface SolicitudCreada {
   correlativo: string;
@@ -278,6 +278,80 @@ export function obtenerSolicitudPorMemoYMonto(
  * Útil para aprobador1 que puede aprobar cualquier solicitud de su rango
  * Filtra por rango de monto según el nivel del aprobador
  */
+/**
+ * Obtiene TODAS las solicitudes que coincidan con acción y nivel (no solo la última)
+ */
+export function obtenerTodasLasSolicitudesPorAccionYNivel(
+  accion: 'rechazar' | 'observar' | 'aprobar',
+  aprobadorNivel: 1 | 2 | 3 = 1,
+  area?: string
+): SolicitudCreada[] {
+  if (!fs.existsSync(dataPath)) {
+    return [];
+  }
+  
+  const rawData = fs.readFileSync(dataPath, 'utf-8');
+  let solicitudes: SolicitudCreada[] = JSON.parse(rawData);
+  
+  if (solicitudes.length === 0) {
+    return [];
+  }
+  
+  // Filtrar por área si se proporciona
+  if (area) {
+    solicitudes = solicitudes.filter(s => s.area.toLowerCase() === area.toLowerCase());
+  }
+  
+  // Obtener rangos del aprobador para filtrar por monto
+  let solicitudesFiltradas: SolicitudCreada[] = [];
+  
+  try {
+    // Obtener aprobador según el área
+    const aprobador = area && area.toUpperCase() === 'SINIESTROS' 
+      ? getAprobadorSINIESTROS(aprobadorNivel)
+      : getAprobadorVIDA(aprobadorNivel);
+    
+    if (aprobador && aprobador.rangos) {
+      // Filtrar por acción Y rango de monto
+      solicitudesFiltradas = solicitudes.filter(s => {
+        if (s.accion !== accion) {
+          return false;
+        }
+        
+        // Verificar que el monto esté dentro del rango del aprobador
+        const monedaKey = s.moneda.toLowerCase() === 'soles' ? 'soles' : 'dolares';
+        const rango = aprobador.rangos[monedaKey];
+        
+        if (!rango) {
+          return false;
+        }
+        
+        return s.monto >= rango.min && s.monto <= rango.max;
+      });
+      
+      if (solicitudesFiltradas.length > 0) {
+        return solicitudesFiltradas;
+      }
+    }
+  } catch (error) {
+    console.log(`   ⚠️  No se pudieron obtener rangos del aprobador, buscando sin filtro de monto...`);
+  }
+  
+  // Fallback: buscar solo por acción y aprobador nivel (sin filtro de monto)
+  solicitudesFiltradas = solicitudes.filter(s => 
+    s.accion === accion && s.aprobadorNivel === aprobadorNivel
+  );
+  
+  if (solicitudesFiltradas.length > 0) {
+    return solicitudesFiltradas;
+  }
+  
+  // Último fallback: buscar solo por acción (sin nivel)
+  solicitudesFiltradas = solicitudes.filter(s => s.accion === accion);
+  
+  return solicitudesFiltradas;
+}
+
 export function obtenerSolicitudPorAccionYNivel(
   accion: 'rechazar' | 'observar' | 'aprobar',
   aprobadorNivel: 1 | 2 | 3 = 1,
@@ -303,7 +377,10 @@ export function obtenerSolicitudPorAccionYNivel(
   let solicitudesFiltradas: SolicitudCreada[] = [];
   
   try {
-    const aprobador = getAprobadorVIDA(aprobadorNivel);
+    // Obtener aprobador según el área
+    const aprobador = area && area.toUpperCase() === 'SINIESTROS' 
+      ? getAprobadorSINIESTROS(aprobadorNivel)
+      : getAprobadorVIDA(aprobadorNivel);
     
     if (aprobador && aprobador.rangos) {
       // Filtrar por acción Y rango de monto (el aprobadorNivel del JSON puede no coincidir)

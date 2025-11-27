@@ -223,6 +223,62 @@ export class AprobarSolicitudPage {
   }
 
   /**
+   * Obtiene el Paso Actual y el monto de una solicitud desde la bandeja (sin entrar al detalle)
+   * Retorna { pasoActual: string | null, monto: number | null, moneda: string | null }
+   */
+  async obtenerPasoActualYMontoDesdeBandeja(correlativo: string, incidente: string): Promise<{ pasoActual: string | null; monto: number | null; moneda: string | null }> {
+    return await this.page.evaluate(({ corr, inc }: { corr: string; inc: string }) => {
+      // @ts-ignore
+      const rows = Array.from(document.querySelectorAll('tbody tr, table tr')) as any[];
+      for (const row of rows) {
+        const rowText = row.textContent || '';
+        // Buscar por correlativo O incidente
+        if (rowText.includes(corr) || rowText.includes(inc)) {
+          const cells = Array.from(row.querySelectorAll('td')) as any[];
+          let pasoActual: string | null = null;
+          let monto: number | null = null;
+          let moneda: string | null = null;
+          
+          // Buscar Paso Actual y monto en las celdas
+          for (const cell of cells) {
+            const cellText = (cell.textContent || '').trim();
+            
+            // Buscar "Paso Actual" (puede estar como "Paso Actual: PENDIENTE_APROBACION" o solo "PENDIENTE_APROBACION")
+            if (cellText.includes('Paso Actual') || cellText.match(/PENDIENTE|APROBADO|RECHAZADO|OBSERVADO/i)) {
+              // Extraer el valor del paso
+              const pasoMatch = cellText.match(/Paso Actual:?\s*([A-Z_]+)/i) || 
+                               cellText.match(/(PENDIENTE_APROBACION|APROBADO|RECHAZADO|OBSERVADO)/i);
+              if (pasoMatch) {
+                pasoActual = pasoMatch[1] || pasoMatch[0];
+              } else if (cellText.match(/PENDIENTE|APROBADO|RECHAZADO|OBSERVADO/i)) {
+                pasoActual = cellText;
+              }
+            }
+            
+            // Buscar monto (formato: "S/ 33000.00" o "$ 20000.00" o "33000.00 Soles")
+            const montoMatch = cellText.match(/([S$])\s*([\d,]+\.?\d*)|([\d,]+\.?\d*)\s*(Soles|Dolares|USD|PEN)/i);
+            if (montoMatch) {
+              const valorMonto = parseFloat((montoMatch[2] || montoMatch[3] || '').replace(/,/g, ''));
+              if (!isNaN(valorMonto)) {
+                monto = valorMonto;
+                // Determinar moneda
+                if (cellText.includes('Soles') || cellText.includes('PEN') || cellText.includes('S/')) {
+                  moneda = 'Soles';
+                } else if (cellText.includes('Dolares') || cellText.includes('USD') || cellText.includes('$')) {
+                  moneda = 'Dolares';
+                }
+              }
+            }
+          }
+          
+          return { pasoActual, monto, moneda };
+        }
+      }
+      return { pasoActual: null, monto: null, moneda: null };
+    }, { corr: correlativo, inc: incidente });
+  }
+
+  /**
    * Selecciona una solicitud por correlativo O incidente (más confiable que memo)
    * IMPORTANTE: Busca específicamente por correlativo/incidente desde solicitudes-creadas.json
    * NO selecciona la primera de la grilla, busca la solicitud exacta
@@ -767,12 +823,26 @@ export class AprobarSolicitudPage {
     await botonAprobar.waitFor({ state: 'visible', timeout: 5000 });
     console.log('   ✓ Botón APROBAR encontrado y visible');
   
+    // IMPORTANTE: Configurar listener del diálogo ANTES de hacer clic (como en VIDA)
+    let dialogAceptado = false;
+    this.page.once('dialog', async dialog => {
+      const mensajeDialogo = dialog.message();
+      console.log(`   📋 Diálogo detectado: ${mensajeDialogo}`);
+      await dialog.accept();
+      dialogAceptado = true;
+      console.log('   ✅ Diálogo ACEPTADO correctamente');
+    });
+  
+    // Capturar URL actual antes de hacer clic
+    const urlAntes = this.page.url();
+    console.log(`   📍 URL antes de hacer clic: ${urlAntes}`);
+  
     // Hacer clic en APROBAR
     console.log('   🖱️  Haciendo clic en botón APROBAR...');
     await botonAprobar.click();
     console.log('   ✓ Clic realizado');
   
-    // Esperar a que aparezca el nuevo modal PrimeVue de confirmación
+    // Esperar a que aparezca el modal PrimeVue O el diálogo nativo
     try {
       console.log('   ⏳ Esperando modal PrimeVue de confirmación...');
       const modalPrimeVue = this.page.locator(this.selectors.modalPrimeVue).first();
@@ -787,46 +857,84 @@ export class AprobarSolicitudPage {
       // Cerrar el modal haciendo clic en "Aceptar"
       const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
       await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
+      
+      // Esperar navegación después de hacer clic en Aceptar
+      const navigationPromise = this.page.waitForURL('**/solicitudes-pago**', { 
+        timeout: 30000,
+        waitUntil: 'domcontentloaded'
+      }).catch(() => {
+        // Si no hay cambio de URL, esperar que el modal se cierre y la página se actualice
+        return this.page.waitForSelector(this.selectors.modalPrimeVue, { 
+          state: 'hidden', 
+          timeout: 10000 
+        });
+      });
+      
       await botonAceptar.click();
       console.log('   ✅ Modal de confirmación ACEPTADO');
       
-      // Esperar a que el modal se cierre
+      // Esperar la navegación o el cierre del modal
+      await navigationPromise;
+      console.log('   ⏳ Esperando redirección después de aprobar...');
+      
+      // Esperar a que el modal se cierre completamente
       await this.page.waitForSelector(this.selectors.modalPrimeVue, { 
         state: 'hidden', 
-        timeout: 5000 
+        timeout: 10000 
       }).catch(() => {
         console.log('   ⚠️  Modal puede haberse cerrado ya');
       });
+      
+      // Verificar si hubo cambio de URL
+      const urlDespues = this.page.url();
+      console.log(`   📍 URL después de aceptar: ${urlDespues}`);
+      
+      if (urlDespues !== urlAntes) {
+        console.log('   ✓ Navegación detectada - Redirección completada');
+      } else {
+        console.log('   ⚠️  No hubo cambio de URL, esperando actualización de la página...');
+        await this.page.waitForTimeout(2000);
+      }
     } catch (error) {
-      // Fallback: intentar con diálogo nativo (compatibilidad hacia atrás)
-      console.log('   ⚠️  Modal PrimeVue no encontrado, intentando con diálogo nativo...');
-      try {
-        this.page.once('dialog', async dialog => {
-          const mensajeDialogo = dialog.message();
-          console.log(`   📋 Diálogo detectado: ${mensajeDialogo}`);
-          await dialog.accept();
-          console.log('   ✅ Diálogo ACEPTADO correctamente');
-        });
-        // Esperar un momento para que aparezca el diálogo
-        await this.page.waitForTimeout(1000);
-      } catch (fallbackError) {
-        console.log('   ⚠️  No se detectó ni modal ni diálogo, continuando...');
+      // Fallback: si no aparece modal PrimeVue, el diálogo nativo ya está configurado arriba
+      console.log('   ⚠️  Modal PrimeVue no encontrado, esperando diálogo nativo...');
+      // Esperar a que el diálogo aparezca y sea aceptado (ya está configurado el listener arriba)
+      await this.page.waitForTimeout(3000); // Dar tiempo para que aparezca el diálogo
+      
+      if (!dialogAceptado) {
+        console.log('   ⚠️  Diálogo no detectado, continuando...');
       }
     }
   
     // IMPORTANTE: Esperar tiempo suficiente para que el backend procese completamente
     console.log('   ⏳ Esperando procesamiento del backend...');
-    await this.page.waitForTimeout(3000); // Dar tiempo al backend para procesar
-  
+    await this.page.waitForTimeout(5000); // Aumentado de 3000 a 5000 para dar más tiempo
+    
     // Esperar la consecuencia (navegación o volver a la bandeja)
     console.log('   ⏳ Esperando que se complete el procesamiento y regreso a bandeja...');
     try {
       // Esperar a que regrese a la bandeja (puede tardar más después de APROBAR)
-      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 15000 });
+      // Primero verificar si estamos en la URL de bandeja
+      const urlActual = this.page.url();
+      const estaEnBandeja = urlActual.includes('/solicitudes-pago') && !urlActual.match(/\/solicitudes-pago\/\d+/);
+      
+      if (!estaEnBandeja) {
+        console.log('   ⏳ Esperando redirección a bandeja...');
+        // Esperar navegación a la bandeja
+        await this.page.waitForURL('**/solicitudes-pago', { 
+          timeout: 30000,
+          waitUntil: 'domcontentloaded'
+        }).catch(() => {
+          console.log('   ⚠️  No se detectó redirección, continuando...');
+        });
+      }
+      
+      // Esperar a que la tabla de bandeja esté visible
+      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 30000 }); // Aumentado de 15000 a 30000
       console.log('   ✓ Tabla de bandeja visible - Procesamiento completado');
       
       // Esperar un momento adicional para asegurar que todo se procesó
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(3000); // Aumentado de 2000 a 3000
     } catch (error: any) {
       console.error('   ⚠️  Error esperando regreso a bandeja:', error);
       // Verificar si al menos estamos en una URL válida
@@ -834,7 +942,7 @@ export class AprobarSolicitudPage {
       if (urlActual.includes('/solicitudes-pago')) {
         console.log('   ⚠️  Continuando aunque no se verificó la tabla...');
         // Esperar un poco más por si acaso
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(3000); // Aumentado de 2000 a 3000
       } else {
         throw new Error(`No se pudo verificar el procesamiento. URL actual: ${urlActual}`);
       }
@@ -922,17 +1030,17 @@ export class AprobarSolicitudPage {
   
     // IMPORTANTE: Esperar tiempo suficiente para que el backend procese completamente
     console.log('   ⏳ Esperando procesamiento del backend...');
-    await this.page.waitForTimeout(3000); // Dar tiempo al backend para procesar
-  
+    await this.page.waitForTimeout(5000); // Dar más tiempo al backend para procesar (aumentado de 3000 a 5000)
+    
     // Esperar la consecuencia (navegación o volver a la bandeja)
     console.log('   ⏳ Esperando que se complete el procesamiento y regreso a bandeja...');
     try {
       // Esperar a que regrese a la bandeja (puede tardar más después de RECHAZAR)
-      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 15000 });
+      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 30000 }); // Aumentado de 15000 a 30000
       console.log('   ✓ Tabla de bandeja visible - Procesamiento completado');
       
       // Esperar un momento adicional para asegurar que todo se procesó
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(3000); // Aumentado de 2000 a 3000
     } catch (error: any) {
       console.error('   ⚠️  Error esperando regreso a bandeja:', error);
       // Verificar si al menos estamos en una URL válida
@@ -940,7 +1048,7 @@ export class AprobarSolicitudPage {
       if (urlActual.includes('/solicitudes-pago')) {
         console.log('   ⚠️  Continuando aunque no se verificó la tabla...');
         // Esperar un poco más por si acaso
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(3000); // Aumentado de 2000 a 3000
       } else {
         throw new Error(`No se pudo verificar el procesamiento. URL actual: ${urlActual}`);
       }
@@ -1027,16 +1135,16 @@ export class AprobarSolicitudPage {
     // Paso 6: Esperar la consecuencia (navegación o volver a la bandeja)
     // IMPORTANTE: Esperar tiempo suficiente para que el backend procese completamente
     console.log('   ⏳ Esperando procesamiento del backend...');
-    await this.page.waitForTimeout(3000); // Dar tiempo al backend para procesar
+    await this.page.waitForTimeout(5000); // Dar más tiempo al backend para procesar (aumentado de 3000 a 5000)
     
     console.log('   ⏳ Esperando que se complete el procesamiento y regreso a bandeja...');
     try {
       // Esperar a que regrese a la bandeja (puede tardar más después de OBSERVAR)
-      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 15000 });
+      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 30000 }); // Aumentado de 15000 a 30000
       console.log('   ✓ Tabla de bandeja visible - Procesamiento completado');
       
       // Esperar un momento adicional para asegurar que todo se procesó
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(3000); // Aumentado de 2000 a 3000
     } catch (error: any) {
       console.error('   ⚠️  Error esperando regreso a bandeja:', error);
       // Verificar si al menos estamos en una URL válida
@@ -1044,7 +1152,7 @@ export class AprobarSolicitudPage {
       if (urlActual.includes('/solicitudes-pago')) {
         console.log('   ⚠️  Continuando aunque no se verificó la tabla...');
         // Esperar un poco más por si acaso
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(3000); // Aumentado de 2000 a 3000
       } else {
         throw new Error(`No se pudo verificar el procesamiento. URL actual: ${urlActual}`);
       }
@@ -1101,17 +1209,17 @@ export class AprobarSolicitudPage {
     
     // IMPORTANTE: Esperar tiempo suficiente para que el backend procese completamente
     console.log('   ⏳ Esperando procesamiento del backend...');
-    await this.page.waitForTimeout(3000); // Dar tiempo al backend para procesar
+    await this.page.waitForTimeout(5000); // Dar más tiempo al backend para procesar (aumentado de 3000 a 5000)
     
     // Esperar la consecuencia (navegación o volver a la bandeja)
     console.log('   ⏳ Esperando que se complete el procesamiento y regreso a bandeja...');
     try {
       // Esperar a que regrese a la bandeja (puede tardar más después de APROBAR)
-      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 15000 });
+      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 30000 }); // Aumentado de 15000 a 30000
       console.log('   ✓ Tabla de bandeja visible - Procesamiento completado');
       
       // Esperar un momento adicional para asegurar que todo se procesó
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(3000); // Aumentado de 2000 a 3000
     } catch (error: any) {
       console.error('   ⚠️  Error esperando regreso a bandeja:', error);
       // Verificar si al menos estamos en una URL válida
@@ -1119,7 +1227,7 @@ export class AprobarSolicitudPage {
       if (urlActual.includes('/solicitudes-pago')) {
         console.log('   ⚠️  Continuando aunque no se verificó la tabla...');
         // Esperar un poco más por si acaso
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(3000); // Aumentado de 2000 a 3000
       } else {
         throw new Error(`No se pudo verificar el procesamiento. URL actual: ${urlActual}`);
       }
@@ -1131,6 +1239,26 @@ export class AprobarSolicitudPage {
   /**
    * Verifica que el estado de la solicitud sea el esperado
    */
+  /**
+   * Obtiene el valor del "Paso Actual" de la solicitud
+   */
+  async obtenerPasoActual(): Promise<string | null> {
+    try {
+      // Esperar a que aparezca el elemento "Paso Actual"
+      await this.page.waitForSelector(this.selectors.paso, { state: 'visible', timeout: 5000 });
+      const pasoText = await this.page.locator(this.selectors.paso).textContent();
+      if (pasoText) {
+        // Extraer solo el valor del paso (remover "Paso Actual:" o similar)
+        const valorPaso = pasoText.replace(/Paso Actual:?/i, '').trim();
+        return valorPaso;
+      }
+      return null;
+    } catch (error) {
+      console.log(`   ⚠️  No se pudo obtener el Paso Actual: ${error}`);
+      return null;
+    }
+  }
+
   async verificarEstado(estadoEsperado: string): Promise<boolean> {
     const estadoText = await this.page.locator(this.selectors.paso).textContent();
     if (estadoText) {

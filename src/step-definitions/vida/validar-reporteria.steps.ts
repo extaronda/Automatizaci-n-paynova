@@ -1,7 +1,7 @@
 import { Given, When, Then, DataTable } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { ReporteriaPage } from '../pages/ReporteriaPage';
-import { obtenerUltimaSolicitud, obtenerSolicitudPorCorrelativo } from '../helper/solicitud-data';
+import { ReporteriaPage } from '../../pages/ReporteriaPage';
+import { obtenerUltimaSolicitud, obtenerSolicitudPorCorrelativo } from '../../helper/solicitud-data';
 import * as fs from 'fs';
 import * as path from 'path';
 

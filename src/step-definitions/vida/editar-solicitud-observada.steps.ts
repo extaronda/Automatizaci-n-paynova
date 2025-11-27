@@ -1,6 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
-import { EditarSolicitudPage } from '../pages/EditarSolicitudPage';
+import { EditarSolicitudPage } from '../../pages/EditarSolicitudPage';
 
 // ==================== NAVEGACIÓN ====================
 
