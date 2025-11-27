@@ -153,7 +153,7 @@ export class RegistrarSolicitudPage {
     try {
       await this.page.waitForSelector(this.selectors.inputNombres, {
         state: 'visible',
-        timeout: 5000
+        timeout: 10000
       });
       return true;
     } catch (error) {
@@ -339,8 +339,8 @@ export class RegistrarSolicitudPage {
    */
   async clickGuardar(): Promise<void> {
     await this.page.click(this.selectors.btnGuardar);
-    // Esperar a que el registro se guarde en la grilla
-    await this.page.waitForTimeout(2000);
+    // Esperar a que el registro se guarde en la grilla (aumentado para siniestros)
+    await this.page.waitForTimeout(5000);
     console.log('✓ Click en GUARDAR');
   }
 
@@ -416,22 +416,27 @@ export class RegistrarSolicitudPage {
     // Intentar con el nuevo botón PrimeVue primero
     try {
       const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
-      await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
+      await botonAceptar.waitFor({ state: 'visible', timeout: 10000 }); // Aumentado timeout
+      
+      // Esperar un momento antes de hacer clic para asegurar que el botón esté completamente cargado
+      await this.page.waitForTimeout(1000);
+      
       await botonAceptar.click();
       console.log('✓ Modal cerrado (PrimeVue)');
       
       // Esperar a que el modal se cierre
       await this.page.waitForSelector(this.selectors.modalPrimeVue, { 
         state: 'hidden', 
-        timeout: 5000 
+        timeout: 10000 // Aumentado timeout
       }).catch(() => {
         console.log('⚠️  Modal puede haberse cerrado ya');
       });
     } catch (error) {
       // Fallback: buscar cualquier botón "Aceptar" o "OK"
       const botonAceptar = this.page.locator('button:has-text("Aceptar"), button:has-text("OK"), button:has-text("Entendido")').first();
-      const visible = await botonAceptar.isVisible({ timeout: 3000 }).catch(() => false);
+      const visible = await botonAceptar.isVisible({ timeout: 5000 }).catch(() => false);
       if (visible) {
+        await this.page.waitForTimeout(1000);
         await botonAceptar.click();
         console.log('✓ Modal cerrado (fallback)');
       } else {
@@ -542,6 +547,17 @@ export class RegistrarSolicitudPage {
       state: 'visible',
       timeout: 30000
     });
+    
+    // Esperar adicional para que el modal se cargue completamente (tabla, datos, etc.)
+    await this.page.waitForTimeout(2000);
+    
+    // Verificar que la tabla también esté cargada
+    await this.page.waitForSelector('table tbody tr', {
+      state: 'visible',
+      timeout: 10000
+    }).catch(() => {
+      console.log('⚠️  Tabla del modal puede no estar visible aún');
+    });
   }
 
   /**
@@ -549,24 +565,78 @@ export class RegistrarSolicitudPage {
    * @param indice - Número de registro a seleccionar (1, 2, 3, etc.)
    */
   async seleccionarRegistroModal(indice: number): Promise<void> {
+    console.log(`🔍 Seleccionando registro #${indice} del modal...`);
+    
     // Esperar a que la tabla esté completamente cargada
-    await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 5000 });
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 15000 });
+    await this.page.waitForTimeout(2000);
+    
+    // Contar filas disponibles para debug
+    const filas = await this.page.locator('table tbody tr').count();
+    console.log(`   📊 Filas encontradas en modal: ${filas}`);
+    
+    if (indice > filas) {
+      throw new Error(`No hay suficientes registros. Se solicitó el registro #${indice} pero solo hay ${filas} registros.`);
+    }
     
     // Seleccionar el checkbox del registro específico
-    const checkbox = this.page.locator(`table tbody tr:nth-child(${indice}) input[type="checkbox"]`);
+    // Usar múltiples selectores para mayor robustez
+    const checkboxSelectors = [
+      `table tbody tr:nth-child(${indice}) input[type="checkbox"]`,
+      `table tbody tr:nth-of-type(${indice}) input[type="checkbox"]`,
+      `table tbody tr:nth-child(${indice}) td input[type="checkbox"]`
+    ];
+    
+    let checkbox = null;
+    for (const selector of checkboxSelectors) {
+      const locator = this.page.locator(selector);
+      const isVisible = await locator.isVisible({ timeout: 3000 }).catch(() => false);
+      if (isVisible) {
+        checkbox = locator;
+        console.log(`   ✓ Checkbox encontrado con selector: ${selector}`);
+        break;
+      }
+    }
+    
+    if (!checkbox) {
+      throw new Error(`No se pudo encontrar el checkbox del registro #${indice}`);
+    }
     
     // Hacer scroll al checkbox para que sea visible
     await checkbox.scrollIntoViewIfNeeded();
-    await this.page.waitForTimeout(300);
-    
-    // Hacer click en el checkbox
-    await checkbox.check();
     await this.page.waitForTimeout(500);
+    
+    // Verificar que el checkbox no esté ya seleccionado
+    const isChecked = await checkbox.isChecked().catch(() => false);
+    if (isChecked) {
+      console.log(`   ✓ Checkbox del registro #${indice} ya estaba seleccionado`);
+    } else {
+      // Hacer click en el checkbox
+      await checkbox.check({ force: true });
+      await this.page.waitForTimeout(1000);
+      
+      // Verificar que se seleccionó correctamente
+      const isNowChecked = await checkbox.isChecked().catch(() => false);
+      if (!isNowChecked) {
+        // Intentar de nuevo con click directo
+        console.log(`   ⚠️  Checkbox no se seleccionó con .check(), intentando con click directo...`);
+        await checkbox.click({ force: true });
+        await this.page.waitForTimeout(1000);
+        
+        const isFinallyChecked = await checkbox.isChecked().catch(() => false);
+        if (!isFinallyChecked) {
+          throw new Error(`No se pudo seleccionar el checkbox del registro #${indice}`);
+        }
+      }
+      console.log(`   ✓ Checkbox del registro #${indice} seleccionado correctamente`);
+    }
     
     // Hacer scroll al botón "Guardar Seleccionado" para que sea visible
     const guardarBtn = this.page.locator('button:has-text("Guardar Seleccionado")');
     await guardarBtn.scrollIntoViewIfNeeded();
+    await this.page.waitForTimeout(500);
+    
+    console.log(`   ✓ Registro #${indice} seleccionado y listo para guardar`);
   }
 
   /**
@@ -574,24 +644,60 @@ export class RegistrarSolicitudPage {
    * IMPORTANTE: Ahora maneja el nuevo modal PrimeVue que aparece después de guardar
    */
   async clickGuardarSeleccionado(): Promise<void> {
-    await this.page.click('button:has-text("Guardar Seleccionado")');
+    console.log('🔍 Haciendo clic en "Guardar Seleccionado"...');
+    
+    // Verificar que el botón esté visible antes de hacer clic
+    const guardarBtn = this.page.locator('button:has-text("Guardar Seleccionado")');
+    await guardarBtn.waitFor({ state: 'visible', timeout: 10000 });
+    
+    // Verificar que al menos un checkbox esté seleccionado
+    const checkboxesSeleccionados = await this.page.locator('table tbody tr input[type="checkbox"]:checked').count();
+    if (checkboxesSeleccionados === 0) {
+      throw new Error('No hay ningún registro seleccionado. Debe seleccionar al menos un registro antes de guardar.');
+    }
+    console.log(`   ✓ ${checkboxesSeleccionados} registro(s) seleccionado(s)`);
+    
+    // Hacer scroll al botón para asegurar que sea visible
+    await guardarBtn.scrollIntoViewIfNeeded();
+    await this.page.waitForTimeout(500);
+    
+    // Hacer clic en el botón
+    await guardarBtn.click();
+    console.log('   ✓ Click en "Guardar Seleccionado" realizado');
+    
+    // Esperar un momento para que se procese el clic
+    await this.page.waitForTimeout(1500);
     
     // Esperar a que aparezca el nuevo modal PrimeVue de confirmación
     try {
       const modalPrimeVue = this.page.locator(this.selectors.modalPrimeVue).first();
-      await modalPrimeVue.waitFor({ state: 'visible', timeout: 10000 });
-      console.log('✓ Modal de confirmación de guardado apareció');
+      await modalPrimeVue.waitFor({ state: 'visible', timeout: 15000 });
+      console.log('   ✓ Modal de confirmación de guardado apareció');
+      
+      // Esperar un momento adicional para que el modal se cargue completamente
+      await this.page.waitForTimeout(2000);
       
       // Cerrar el modal haciendo clic en "Aceptar"
       await this.cerrarModalConfirmacion();
+      
+      // Esperar después de cerrar el modal para que el registro se guarde en la grilla
+      await this.page.waitForTimeout(3000);
+      console.log('   ✓ Registro guardado en la grilla');
     } catch (error) {
+      console.log(`   ⚠️  Error esperando modal PrimeVue: ${error}`);
       // Fallback: esperar a que el modal de selección se cierre (comportamiento legacy)
-      await this.page.waitForSelector('button:has-text("Guardar Seleccionado")', {
-        state: 'hidden',
-        timeout: 10000
-      }).catch(() => {
-        console.log('⚠️  Modal puede haberse cerrado ya');
-      });
+      try {
+        await this.page.waitForSelector('button:has-text("Guardar Seleccionado")', {
+          state: 'hidden',
+          timeout: 15000
+        });
+        console.log('   ✓ Modal de selección se cerró (comportamiento legacy)');
+      } catch (fallbackError) {
+        console.log('   ⚠️  Modal puede haberse cerrado ya o no se detectó el cierre');
+      }
+      
+      // Esperar adicional en caso de fallback
+      await this.page.waitForTimeout(3000);
     }
   }
 

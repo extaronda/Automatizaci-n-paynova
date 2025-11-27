@@ -18,7 +18,7 @@ Característica: Validación de Reportería de Solicitudes
   Escenario: Validar Registros con Estado APROBADO
     Dado que estoy autenticado en el sistema Paynova como usuario de VIDA
     Cuando accedo a la página de Reportería de Solicitudes
-    Y ingreso el incidente "633501" en el filtro de Incidente
+    Y ingreso el incidente "633668" en el filtro de Incidente
     Y presiono el botón Consultar
     Entonces debería ver los resultados filtrados por incidente en Reportería
     Y cada registro APROBADO debe tener Asiento con valor válido (no vacío ni '-')
@@ -99,7 +99,7 @@ Característica: Validación de Reportería de Solicitudes
   Escenario: Limpiar Filtros en Reportería
     Dado que estoy autenticado en el sistema Paynova como usuario de VIDA
     Cuando accedo a la página de Reportería de Solicitudes
-    Y ingreso el incidente "633501" en el filtro de Incidente
+    Y ingreso el incidente "633668" en el filtro de Incidente
     Y presiono el botón Limpiar Filtros
     Entonces los filtros deberían estar vacíos
 

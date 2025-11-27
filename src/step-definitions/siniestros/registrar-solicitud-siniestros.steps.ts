@@ -20,42 +20,11 @@ When('espero que aparezca el modal de Grupo SINIESTROS', async function() {
   console.log('   ✓ Modal de Grupo SINIESTROS apareció');
 });
 
-When('selecciono el primer registro del modal', async function() {
-  const registrarPage = new RegistrarSolicitudPage(global.page);
-  await registrarPage.seleccionarRegistroModal(1);
-  console.log('   ✓ Primer registro seleccionado');
-});
-
-When('selecciono el segundo registro del modal', async function() {
-  const registrarPage = new RegistrarSolicitudPage(global.page);
-  await registrarPage.seleccionarRegistroModal(2);
-  console.log('   ✓ Segundo registro seleccionado');
-});
-
-When('selecciono el tercer registro del modal', async function() {
-  const registrarPage = new RegistrarSolicitudPage(global.page);
-  await registrarPage.seleccionarRegistroModal(3);
-  console.log('   ✓ Tercer registro seleccionado');
-});
-
-When('hago clic en Guardar Seleccionado', async function() {
-  const registrarPage = new RegistrarSolicitudPage(global.page);
-  await registrarPage.clickGuardarSeleccionado();
-  console.log('   ✓ Click en Guardar Seleccionado');
-});
-
-Then('debería ver el registro guardado en la grilla', async function() {
-  const registrarPage = new RegistrarSolicitudPage(global.page);
-  const tieneRegistro = await registrarPage.verificarRegistroEnGrilla();
-  expect(tieneRegistro).toBeTruthy();
-  console.log('   ✓ Registro guardado en la grilla');
-});
-
-When('hago clic en el botón Editar del registro', async function() {
-  const registrarPage = new RegistrarSolicitudPage(global.page);
-  await registrarPage.clickEditarRegistro();
-  console.log('   ✓ Modo edición activado');
-});
+// NOTA: Los steps "selecciono el primer/segundo/tercer registro del modal",
+// "hago clic en Guardar Seleccionado", "debería ver el registro guardado en la grilla"
+// y "hago clic en el botón Editar del registro" están definidos en
+// src/step-definitions/vida/registrar-solicitud-vida.steps.ts y son compartidos
+// entre VIDA y SINIESTROS para evitar duplicación.
 
 When('completo los datos de SINIESTROS:', async function(dataTable: DataTable) {
   const datos = dataTable.hashes()[0];
@@ -146,14 +115,9 @@ When('completo los datos de SINIESTROS desde JSON {string}', async function(iden
   console.log(`   ✓ Datos completados desde JSON → ${datosJSON.banco} | ${datosJSON.moneda} ${datosJSON.monto}`);
 });
 
-When('hago clic en ACTUALIZAR sin validar', async function() {
-  const registrarPage = new RegistrarSolicitudPage(global.page);
-  await registrarPage.clickActualizar();
-  console.log('   ✓ Click ACTUALIZAR');
-  
-  // Esperar un momento para que se actualice la grilla
-  await registrarPage.page.waitForTimeout(2000);
-});
+// NOTA: El step "hago clic en ACTUALIZAR sin validar" está definido en
+// src/step-definitions/vida/registrar-solicitud-vida.steps.ts y es compartido
+// entre VIDA y SINIESTROS para evitar duplicación.
 
 When('hago clic en ACTUALIZAR', async function() {
   const registrarPage = new RegistrarSolicitudPage(global.page);
@@ -191,9 +155,6 @@ When('hago clic en ACTUALIZAR', async function() {
 
 // ==================== VERIFICACIONES ====================
 
-Then('debería ver el registro actualizado en la grilla', async function() {
-  const registrarPage = new RegistrarSolicitudPage(global.page);
-  const tieneRegistro = await registrarPage.verificarRegistroEnGrilla();
-  expect(tieneRegistro).toBeTruthy();
-  console.log('   ✓ Registro actualizado en la grilla');
-});
+// NOTA: El step "debería ver el registro actualizado en la grilla" está definido en
+// src/step-definitions/vida/registrar-solicitud-vida.steps.ts y es compartido
+// entre VIDA y SINIESTROS para evitar duplicación.

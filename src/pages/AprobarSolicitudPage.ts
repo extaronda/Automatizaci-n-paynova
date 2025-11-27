@@ -960,37 +960,96 @@ export class AprobarSolicitudPage {
     await botonRechazar.waitFor({ state: 'visible', timeout: 5000 });
     console.log('   ✓ Botón RECHAZAR encontrado y visible');
   
+    // IMPORTANTE: Configurar listener de diálogo nativo ANTES de hacer clic
+    // para capturar los diálogos cuando aparezcan
+    let dialogHandled = false;
+    let primerDialogoCompletado = false;
+    
+    // Listener único que maneja ambos diálogos secuencialmente
+    const manejarDialogosNativos = async (): Promise<void> => {
+      return new Promise<void>((resolve) => {
+        // Primer diálogo (prompt para comentario)
+        this.page.once('dialog', async dialog => {
+          if (dialogHandled) {
+            resolve();
+            return;
+          }
+          dialogHandled = true;
+          const mensajeDialogo = dialog.message();
+          console.log(`   📋 Diálogo prompt detectado: ${mensajeDialogo}`);
+          await dialog.accept(comentario);
+          console.log(`   ✅ Diálogo prompt ACEPTADO con comentario: ${comentario}`);
+          primerDialogoCompletado = true;
+          
+          // Esperar un momento antes de configurar el segundo listener
+          await this.page.waitForTimeout(500);
+          
+          // Segundo diálogo (confirmación) - configurar después del primero
+          this.page.once('dialog', async dialog2 => {
+            const mensajeDialogo2 = dialog2.message();
+            console.log(`   📋 Diálogo de confirmación detectado: ${mensajeDialogo2}`);
+            await dialog2.accept();
+            console.log('   ✅ Diálogo de confirmación ACEPTADO');
+            resolve();
+          });
+          
+          // Si no aparece el segundo diálogo en 5 segundos, resolver de todas formas
+          setTimeout(() => {
+            if (primerDialogoCompletado) {
+              console.log('   ⚠️  Segundo diálogo no apareció, continuando...');
+              resolve();
+            }
+          }, 5000);
+        });
+      });
+    };
+    
+    const dialogNativePromise = manejarDialogosNativos();
+  
     // Paso 1: Hacer clic en RECHAZAR
     console.log('   🖱️  Haciendo clic en botón RECHAZAR...');
     await botonRechazar.click();
     console.log('   ✓ Clic realizado');
   
-    // Paso 2: Esperar a que aparezca el modal PrimeVue para ingresar comentario
-    try {
-      console.log('   ⏳ Esperando modal PrimeVue para comentario...');
-      const modalComentario = this.page.locator(this.selectors.modalPrimeVue).first();
-      await modalComentario.waitFor({ state: 'visible', timeout: 10000 });
+    // Paso 2: Esperar AMBOS simultáneamente (modal PrimeVue O diálogo nativo)
+    // Usar Promise.race para capturar el primero que aparezca
+    const modalPrimeVuePromise = this.page.locator(this.selectors.modalPrimeVue).first()
+      .waitFor({ state: 'visible', timeout: 2000 })
+      .then(() => ({ type: 'modal' as const }))
+      .catch(() => ({ type: 'none' as const }));
+    
+    const dialogNativePromiseTyped = dialogNativePromise.then(() => ({ type: 'dialog' as const }))
+      .catch(() => ({ type: 'none' as const }));
+    
+    // Esperar a que aparezca cualquiera de los dos
+    const resultado = await Promise.race([
+      modalPrimeVuePromise,
+      dialogNativePromiseTyped
+    ]);
+    
+    if (resultado.type === 'modal') {
+      // Procesar modal PrimeVue
       console.log('   ✓ Modal PrimeVue de comentario apareció');
       
-      // Paso 3: Llenar el comentario en el modal
+      // Llenar el comentario en el modal
       const inputComentario = this.page.locator(this.selectors.modalComentarioInput).first();
       await inputComentario.waitFor({ state: 'visible', timeout: 5000 });
       await inputComentario.fill(comentario);
       console.log(`   📝 Comentario ingresado: "${comentario}"`);
       
-      // Paso 4: Hacer clic en Confirmar del modal
+      // Hacer clic en Confirmar del modal
       const botonConfirmar = this.page.locator(this.selectors.modalComentarioConfirmar).first();
       await botonConfirmar.waitFor({ state: 'visible', timeout: 5000 });
       await botonConfirmar.click();
       console.log('   ✓ Clic en Confirmar realizado');
       
-      // Paso 5: Esperar modal de confirmación final
+      // Esperar modal de confirmación final
       await this.page.waitForTimeout(1000);
       const modalConfirmacion = this.page.locator(this.selectors.modalPrimeVue).first();
       await modalConfirmacion.waitFor({ state: 'visible', timeout: 10000 });
       console.log('   ✓ Modal de confirmación apareció');
       
-      // Paso 6: Aceptar el modal de confirmación
+      // Aceptar el modal de confirmación
       const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
       await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
       await botonAceptar.click();
@@ -1003,28 +1062,72 @@ export class AprobarSolicitudPage {
       }).catch(() => {
         console.log('   ⚠️  Modal puede haberse cerrado ya');
       });
-    } catch (error) {
-      // Fallback: intentar con diálogo nativo prompt (compatibilidad hacia atrás)
-      console.log('   ⚠️  Modal PrimeVue no encontrado, intentando con diálogo nativo prompt...');
+    } else if (resultado.type === 'dialog') {
+      // El diálogo nativo prompt ya fue manejado, ahora esperar modal PrimeVue de confirmación
+      console.log('   ✅ Diálogo nativo (prompt) procesado');
+      
+      // Esperar un momento para que aparezca el modal de confirmación
+      await this.page.waitForTimeout(1000);
+      
+      // Esperar modal PrimeVue de confirmación
       try {
-        this.page.once('dialog', async dialog => {
-          const mensajeDialogo = dialog.message();
-          console.log(`   📋 Diálogo prompt detectado: ${mensajeDialogo}`);
-          await dialog.accept(comentario);
-          console.log(`   ✅ Diálogo prompt ACEPTADO con comentario: ${comentario}`);
-        });
+        console.log('   ⏳ Esperando modal PrimeVue de confirmación...');
+        const modalConfirmacion = this.page.locator(this.selectors.modalPrimeVue).first();
+        await modalConfirmacion.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('   ✓ Modal PrimeVue de confirmación apareció');
         
-        // Esperar segundo diálogo de confirmación
-        this.page.once('dialog', async dialog => {
-          const mensajeDialogo = dialog.message();
-          console.log(`   📋 Diálogo de confirmación detectado: ${mensajeDialogo}`);
-          await dialog.accept();
-          console.log('   ✅ Diálogo de confirmación ACEPTADO');
-        });
+        // Obtener el mensaje del modal
+        const mensajeModal = this.page.locator(this.selectors.modalPrimeVueMensaje).first();
+        const textoModal = await mensajeModal.textContent() || '';
+        console.log(`   📋 Mensaje del modal: ${textoModal.substring(0, 100)}...`);
         
-        await this.page.waitForTimeout(1000);
-      } catch (fallbackError) {
-        console.log('   ⚠️  No se detectó ni modal ni diálogo, continuando...');
+        // Aceptar el modal de confirmación
+        const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
+        await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
+        await botonAceptar.click();
+        console.log('   ✅ Modal de confirmación ACEPTADO');
+        
+        // Esperar a que el modal se cierre
+        await this.page.waitForSelector(this.selectors.modalPrimeVue, { 
+          state: 'hidden', 
+          timeout: 5000 
+        }).catch(() => {
+          console.log('   ⚠️  Modal puede haberse cerrado ya');
+        });
+      } catch (modalError) {
+        console.log('   ⚠️  Modal de confirmación no apareció, pero el diálogo nativo fue procesado');
+      }
+      
+      // También esperar el segundo diálogo nativo si aparece (confirmación nativa)
+      try {
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            this.page.once('dialog', async dialog2 => {
+              const mensajeDialogo2 = dialog2.message();
+              console.log(`   📋 Diálogo de confirmación nativo detectado: ${mensajeDialogo2}`);
+              await dialog2.accept();
+              console.log('   ✅ Diálogo de confirmación nativo ACEPTADO');
+              resolve();
+            });
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+        ]);
+      } catch (timeoutError) {
+        // No hay problema si no aparece segundo diálogo nativo
+      }
+    } else {
+      // Ninguno apareció en 2 segundos, esperar un poco más
+      console.log('   ⏳ Esperando modal o diálogo (timeout extendido)...');
+      try {
+        await Promise.race([
+          this.page.locator(this.selectors.modalPrimeVue).first().waitFor({ state: 'visible', timeout: 3000 }),
+          dialogNativePromise
+        ]);
+        console.log('   ✅ Modal o diálogo detectado');
+      } catch (finalError) {
+        if (!dialogHandled) {
+          console.log('   ⚠️  No se detectó ni modal ni diálogo después del timeout extendido');
+        }
       }
     }
   
@@ -1084,18 +1187,31 @@ export class AprobarSolicitudPage {
     await this.page.fill('textarea[placeholder*="observación"], textarea[placeholder*="observacion"]', comentario);
     console.log('   ✓ Comentario ingresado');
   
-    // Paso 4: Hacer clic en "CONFIRMAR OBSERVACIÓN"
+    // Paso 4: Configurar listener de diálogo nativo ANTES de hacer clic en CONFIRMAR
+    let dialogHandledObservar = false;
+    const dialogPromiseObservar = new Promise<void>((resolve) => {
+      this.page.once('dialog', async dialog => {
+        dialogHandledObservar = true;
+        const mensajeDialogo = dialog.message();
+        console.log(`   📋 Diálogo de confirmación detectado: ${mensajeDialogo}`);
+        await dialog.accept();
+        console.log('   ✅ Diálogo de confirmación ACEPTADO');
+        resolve();
+      });
+    });
+    
+    // Paso 5: Hacer clic en "CONFIRMAR OBSERVACIÓN"
     console.log('   🖱️  Haciendo clic en CONFIRMAR OBSERVACIÓN...');
     const botonConfirmar = this.page.locator('button.btn-warning:has-text("CONFIRMAR OBSERVACIÓN")');
     await botonConfirmar.waitFor({ state: 'visible', timeout: 5000 });
     await botonConfirmar.click();
     console.log('   ✓ Clic en CONFIRMAR OBSERVACIÓN realizado');
   
-    // Paso 5: Esperar modal PrimeVue de confirmación
+    // Paso 6: Esperar modal PrimeVue de confirmación O diálogo nativo
     try {
       console.log('   ⏳ Esperando modal PrimeVue de confirmación...');
       const modalConfirmacion = this.page.locator(this.selectors.modalPrimeVue).first();
-      await modalConfirmacion.waitFor({ state: 'visible', timeout: 10000 });
+      await modalConfirmacion.waitFor({ state: 'visible', timeout: 5000 });
       console.log('   ✓ Modal PrimeVue de confirmación apareció');
       
       // Obtener el mensaje del modal
@@ -1103,7 +1219,7 @@ export class AprobarSolicitudPage {
       const textoModal = await mensajeModal.textContent() || '';
       console.log(`   📋 Mensaje del modal: ${textoModal.substring(0, 100)}...`);
       
-      // Paso 6: Aceptar el modal de confirmación
+      // Aceptar el modal de confirmación
       const botonAceptar = this.page.locator(this.selectors.modalPrimeVueAceptar).first();
       await botonAceptar.waitFor({ state: 'visible', timeout: 5000 });
       await botonAceptar.click();
@@ -1117,18 +1233,18 @@ export class AprobarSolicitudPage {
         console.log('   ⚠️  Modal puede haberse cerrado ya');
       });
     } catch (error) {
-      // Fallback: intentar con diálogo nativo (compatibilidad hacia atrás)
-      console.log('   ⚠️  Modal PrimeVue no encontrado, intentando con diálogo nativo...');
+      // Fallback: esperar diálogo nativo si no apareció modal PrimeVue
+      console.log('   ⚠️  Modal PrimeVue no encontrado, esperando diálogo nativo...');
       try {
-        this.page.once('dialog', async dialog => {
-          const mensajeDialogo = dialog.message();
-          console.log(`   📋 Diálogo de confirmación detectado: ${mensajeDialogo}`);
-          await dialog.accept();
-          console.log('   ✅ Diálogo de confirmación ACEPTADO');
-        });
-        await this.page.waitForTimeout(1000);
-      } catch (fallbackError) {
-        console.log('   ⚠️  No se detectó ni modal ni diálogo, continuando...');
+        await Promise.race([
+          dialogPromiseObservar,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+        console.log('   ✅ Diálogo nativo procesado correctamente');
+      } catch (timeoutError) {
+        if (!dialogHandledObservar) {
+          console.log('   ⚠️  No se detectó ni modal ni diálogo después de 10 segundos');
+        }
       }
     }
   
@@ -1341,6 +1457,48 @@ export class AprobarSolicitudPage {
   async volverABandeja(): Promise<void> {
     await this.page.locator(this.selectors.botonVolverBandeja).click();
     await this.page.waitForSelector(this.selectors.tablaSolicitudes, { state: 'visible', timeout: 10000 });
+  }
+
+  /**
+   * Verifica el estado de una solicitud en la bandeja por su correlativo
+   * Útil para validar que RECHAZAR u OBSERVAR realmente procesaron la acción
+   */
+  async verificarEstadoSolicitudEnBandeja(correlativo: string, estadoEsperado: string): Promise<boolean> {
+    try {
+      // Esperar a que la tabla esté visible
+      await this.page.waitForSelector('table tbody tr', { state: 'visible', timeout: 10000 });
+      
+      // Buscar la fila que contiene el correlativo
+      const estadoEncontrado = await this.page.evaluate((args: { corr: string; estadoEsperado: string }) => {
+        const { corr, estadoEsperado } = args;
+        // @ts-ignore - document existe en el contexto del navegador
+        const rows = Array.from(document.querySelectorAll('table tbody tr'));
+        for (const row of rows) {
+          const rowText = (row as any).textContent || '';
+          if (rowText.includes(corr)) {
+            // Buscar la columna "Paso Actual" o "Estado"
+            const cells = Array.from((row as any).querySelectorAll('td'));
+            for (const cell of cells) {
+              const cellText = (cell as any).textContent || '';
+              // Verificar si contiene el estado esperado
+              if (cellText.toLowerCase().includes(estadoEsperado.toLowerCase())) {
+                return true;
+              }
+            }
+            // También buscar en toda la fila
+            if (rowText.toLowerCase().includes(estadoEsperado.toLowerCase())) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }, { corr: correlativo, estadoEsperado });
+      
+      return estadoEncontrado as boolean;
+    } catch (error) {
+      console.log(`   ⚠️  Error verificando estado: ${error}`);
+      return false;
+    }
   }
 
   // ==================== HISTÓRICO PERSONAL ====================

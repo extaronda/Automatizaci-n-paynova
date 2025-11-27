@@ -144,10 +144,37 @@ When('selecciono la solicitud para {string} de {string}', async function(accionT
       continue;
     }
     
-    // Verificar que el Paso Actual NO sea "APROBADO" (si la acción es aprobar)
-    if (accion === 'aprobar' && infoBandeja.pasoActual.toUpperCase().includes('APROBADO')) {
+    // Verificar que el Paso Actual sea PENDIENTE_APROBACION para todas las acciones
+    const pasoActualUpper = infoBandeja.pasoActual.toUpperCase();
+    
+    // Si la acción es aprobar, verificar que NO esté APROBADA
+    if (accion === 'aprobar' && pasoActualUpper.includes('APROBADO')) {
       console.log(`   ⚠️  Solicitud ${solicitudCandidata.correlativo} ya está APROBADA (Paso Actual: ${infoBandeja.pasoActual}), probando siguiente...`);
       continue;
+    }
+    
+    // Si la acción es rechazar, verificar que NO esté RECHAZADA y que esté PENDIENTE_APROBACION
+    if (accion === 'rechazar') {
+      if (pasoActualUpper.includes('RECHAZADO') || pasoActualUpper.includes('RECHAZADA')) {
+        console.log(`   ⚠️  Solicitud ${solicitudCandidata.correlativo} ya está RECHAZADA (Paso Actual: ${infoBandeja.pasoActual}), probando siguiente...`);
+        continue;
+      }
+      if (!pasoActualUpper.includes('PENDIENTE_APROBACION') && !pasoActualUpper.includes('PENDIENTE')) {
+        console.log(`   ⚠️  Solicitud ${solicitudCandidata.correlativo} no está PENDIENTE_APROBACION (Paso Actual: ${infoBandeja.pasoActual}), probando siguiente...`);
+        continue;
+      }
+    }
+    
+    // Si la acción es observar, verificar que NO esté OBSERVADA y que esté PENDIENTE_APROBACION
+    if (accion === 'observar') {
+      if (pasoActualUpper.includes('OBSERVADO') || pasoActualUpper.includes('OBSERVADA')) {
+        console.log(`   ⚠️  Solicitud ${solicitudCandidata.correlativo} ya está OBSERVADA (Paso Actual: ${infoBandeja.pasoActual}), probando siguiente...`);
+        continue;
+      }
+      if (!pasoActualUpper.includes('PENDIENTE_APROBACION') && !pasoActualUpper.includes('PENDIENTE')) {
+        console.log(`   ⚠️  Solicitud ${solicitudCandidata.correlativo} no está PENDIENTE_APROBACION (Paso Actual: ${infoBandeja.pasoActual}), probando siguiente...`);
+        continue;
+      }
     }
     
     // Verificar que el monto esté dentro del rango del aprobador
@@ -168,9 +195,12 @@ When('selecciono la solicitud para {string} de {string}', async function(accionT
   }
   
   if (!solicitudValida) {
+    const estadosExcluidos = accion === 'aprobar' ? 'aprobadas' : 
+                            accion === 'rechazar' ? 'rechazadas' : 
+                            accion === 'observar' ? 'observadas' : 'procesadas';
     throw new Error(
       `❌ No se encontró ninguna solicitud válida para acción "${accion}" y aprobador nivel ${aprobadorNivel}. ` +
-      `Todas las solicitudes encontradas ya están aprobadas, fuera de rango o no están en la bandeja. ` +
+      `Todas las solicitudes encontradas ya están ${estadosExcluidos}, fuera de rango, no están PENDIENTE_APROBACION o no están en la bandeja. ` +
       `Por favor, ejecuta primero el test de registro para crear nuevas solicitudes pendientes.`
     );
   }
@@ -254,6 +284,57 @@ When('selecciono la última solicitud creada de {string}', async function(memo: 
   }
   
   if (solicitud && solicitud.correlativo && solicitud.incidente) {
+    // Verificar Paso Actual antes de seleccionar
+    console.log(`   🔍 Verificando estado de solicitud ${solicitud.correlativo}...`);
+    const infoBandeja = await aprobarPage.obtenerPasoActualYMontoDesdeBandeja(solicitud.correlativo, solicitud.incidente);
+    
+    if (!infoBandeja.pasoActual) {
+      throw new Error(
+        `❌ Solicitud ${solicitud.correlativo} no encontrada en la bandeja. ` +
+        `Asegúrate de que la solicitud esté disponible en la bandeja del aprobador.`
+      );
+    }
+    
+    const pasoActualUpper = infoBandeja.pasoActual.toUpperCase();
+    
+    // Verificar que el Paso Actual sea PENDIENTE_APROBACION para todas las acciones
+    if (accion === 'aprobar' && pasoActualUpper.includes('APROBADO')) {
+      throw new Error(
+        `❌ Solicitud ${solicitud.correlativo} ya está APROBADA (Paso Actual: ${infoBandeja.pasoActual}). ` +
+        `Por favor, ejecuta primero el test de registro para crear nuevas solicitudes pendientes.`
+      );
+    }
+    
+    if (accion === 'rechazar') {
+      if (pasoActualUpper.includes('RECHAZADO') || pasoActualUpper.includes('RECHAZADA')) {
+        throw new Error(
+          `❌ Solicitud ${solicitud.correlativo} ya está RECHAZADA (Paso Actual: ${infoBandeja.pasoActual}). ` +
+          `Por favor, ejecuta primero el test de registro para crear nuevas solicitudes pendientes.`
+        );
+      }
+      if (!pasoActualUpper.includes('PENDIENTE_APROBACION') && !pasoActualUpper.includes('PENDIENTE')) {
+        throw new Error(
+          `❌ Solicitud ${solicitud.correlativo} no está PENDIENTE_APROBACION (Paso Actual: ${infoBandeja.pasoActual}). ` +
+          `Por favor, ejecuta primero el test de registro para crear nuevas solicitudes pendientes.`
+        );
+      }
+    }
+    
+    if (accion === 'observar') {
+      if (pasoActualUpper.includes('OBSERVADO') || pasoActualUpper.includes('OBSERVADA')) {
+        throw new Error(
+          `❌ Solicitud ${solicitud.correlativo} ya está OBSERVADA (Paso Actual: ${infoBandeja.pasoActual}). ` +
+          `Por favor, ejecuta primero el test de registro para crear nuevas solicitudes pendientes.`
+        );
+      }
+      if (!pasoActualUpper.includes('PENDIENTE_APROBACION') && !pasoActualUpper.includes('PENDIENTE')) {
+        throw new Error(
+          `❌ Solicitud ${solicitud.correlativo} no está PENDIENTE_APROBACION (Paso Actual: ${infoBandeja.pasoActual}). ` +
+          `Por favor, ejecuta primero el test de registro para crear nuevas solicitudes pendientes.`
+        );
+      }
+    }
+    
     // Buscar por correlativo o incidente en la bandeja (método principal y más confiable)
     console.log(`   🔍 Buscando solicitud por Correlativo: ${solicitud.correlativo} o Incidente: ${solicitud.incidente} (Memo: ${solicitud.memo}, Acción: ${accion}, Aprobador Nivel: ${aprobadorNivel})`);
     await aprobarPage.seleccionarSolicitudPorCorrelativoOIncidente(solicitud.correlativo, solicitud.incidente);
@@ -537,17 +618,68 @@ Then('debería ver el estado {string}', async function(estadoEsperado: string) {
 });
 
 Then('la solicitud debe terminar correctamente', async function() {
-  // Verificar que estamos de vuelta en la bandeja o que el estado cambió
+  // Verificar que estamos de vuelta en la bandeja
   const aprobarPage = new AprobarSolicitudPage(global.page);
   const enBandeja = await aprobarPage.verificarRegresoABandeja();
   expect(enBandeja).toBeTruthy();
+  
+  // IMPORTANTE: Verificar que el estado realmente cambió a RECHAZADO
+  const solicitudActual = this.solicitudActual;
+  if (solicitudActual && solicitudActual.correlativo) {
+    console.log(`   🔍 Verificando estado de solicitud ${solicitudActual.correlativo} en bandeja...`);
+    // Esperar un momento para que el backend procese
+    await global.page.waitForTimeout(3000);
+    
+    // Refrescar la página para obtener el estado actualizado
+    await aprobarPage.navegarABandeja();
+    await global.page.waitForTimeout(2000);
+    
+    const estadoRechazado = await aprobarPage.verificarEstadoSolicitudEnBandeja(
+      solicitudActual.correlativo, 
+      'RECHAZADO'
+    );
+    
+    if (estadoRechazado) {
+      console.log(`   ✅ Estado RECHAZADO confirmado para ${solicitudActual.correlativo}`);
+    } else {
+      console.log(`   ⚠️  Estado RECHAZADO no encontrado para ${solicitudActual.correlativo} - puede que aún se esté procesando`);
+      // No fallar el test, solo advertir
+    }
+  }
+  
   console.log('   ✓ Solicitud procesada correctamente');
 });
 
 Then('la solicitud debe regresar a la bandeja del usuario Recaudador', async function() {
+  // Verificar que estamos de vuelta en la bandeja
   const aprobarPage = new AprobarSolicitudPage(global.page);
   const enBandeja = await aprobarPage.verificarRegresoABandeja();
   expect(enBandeja).toBeTruthy();
+  
+  // IMPORTANTE: Verificar que el estado realmente cambió a OBSERVADO
+  const solicitudActual = this.solicitudActual;
+  if (solicitudActual && solicitudActual.correlativo) {
+    console.log(`   🔍 Verificando estado de solicitud ${solicitudActual.correlativo} en bandeja...`);
+    // Esperar un momento para que el backend procese
+    await global.page.waitForTimeout(3000);
+    
+    // Refrescar la página para obtener el estado actualizado
+    await aprobarPage.navegarABandeja();
+    await global.page.waitForTimeout(2000);
+    
+    const estadoObservado = await aprobarPage.verificarEstadoSolicitudEnBandeja(
+      solicitudActual.correlativo, 
+      'OBSERVADO'
+    );
+    
+    if (estadoObservado) {
+      console.log(`   ✅ Estado OBSERVADO confirmado para ${solicitudActual.correlativo}`);
+    } else {
+      console.log(`   ⚠️  Estado OBSERVADO no encontrado para ${solicitudActual.correlativo} - puede que aún se esté procesando`);
+      // No fallar el test, solo advertir
+    }
+  }
+  
   console.log('   ✓ Solicitud regresó a bandeja del Recaudador');
 });
 

@@ -111,7 +111,7 @@ Before(async function ({ pickle }) {
     // Crear nuevo contexto y página para cada escenario
     console.log('📄 Creando nuevo contexto y página...');
     global.context = await global.browser.newContext({
-      viewport: { width: 1920, height: 1080 }, // 📸 Viewport más grande para capturas completas
+      viewport: null, // 📺 Usar tamaño completo de la ventana maximizada (pantalla completa normal)
       recordVideo: process.env.RECORD_VIDEO === 'true' ? {
         dir: './test-results/videos/',
         size: { width: 1920, height: 1080 }
@@ -119,7 +119,7 @@ Before(async function ({ pickle }) {
     });
     
     global.page = await global.context.newPage();
-    console.log('✅ Contexto y página creados correctamente');
+    console.log('✅ Contexto y página creados correctamente (pantalla completa)');
   } catch (error) {
     console.error('\n❌ ERROR EN Before hook:');
     console.error(error);

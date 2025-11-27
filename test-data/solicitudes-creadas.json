@@ -116,7 +116,7 @@
     "moneda": "Dolares",
     "fechaCreacion": "2025-11-27T04:31:01.626Z",
     "usuario": "evarasga",
-    "accion": "aprobar",
+    "accion": "observar",
     "aprobadorNivel": 1
   },
   {
@@ -128,7 +128,7 @@
     "moneda": "Dolares",
     "fechaCreacion": "2025-11-27T04:32:36.627Z",
     "usuario": "evarasga",
-    "accion": "aprobar",
+    "accion": "rechazar",
     "aprobadorNivel": 1
   },
   {
@@ -201,6 +201,30 @@
     "fechaCreacion": "2025-11-27T04:40:29.214Z",
     "usuario": "evarasga",
     "accion": "observar",
+    "aprobadorNivel": 1
+  },
+  {
+    "correlativo": "2025-VIDA-0706",
+    "incidente": "633711",
+    "area": "VIDA",
+    "memo": "PAGO DE SOBREVIVENCIA",
+    "monto": 800,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-27T16:16:41.497Z",
+    "usuario": "jcastroc",
+    "accion": "aprobar",
+    "aprobadorNivel": 1
+  },
+  {
+    "correlativo": "2025-SIN-3778",
+    "incidente": "633712",
+    "area": "SINIESTROS",
+    "memo": "SOAT",
+    "monto": 15000,
+    "moneda": "Dolares",
+    "fechaCreacion": "2025-11-27T16:38:13.216Z",
+    "usuario": "evarasga",
+    "accion": "aprobar",
     "aprobadorNivel": 1
   }
 ]

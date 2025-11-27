@@ -1,0 +1,329 @@
+---
+alwaysApply: true
+---
+
+# 📋 Reglas de Gherkin y Cucumber - Paynova Automation
+
+## 🎯 Estructura de Archivos
+
+```
+src/
+├── features/
+│   ├── vida/              # Features del área VIDA
+│   └── siniestros/        # Features del área SINIESTROS
+├── step-definitions/
+│   ├── vida/              # Step definitions de VIDA
+│   └── siniestros/        # Step definitions de SINIESTROS
+└── pages/                 # Page Object Model (POM)
+    ├── LoginPage.ts
+    ├── RegistrarSolicitudPage.ts
+    └── ...
+```
+
+**Reglas**: `.feature` y `.steps.ts` en la misma estructura de carpetas. Page Objects en `src/pages/` compartidos entre áreas.
+
+---
+
+## 📝 Feature Files (.feature)
+
+### Estructura Básica
+```gherkin
+# language: es
+Característica: [Nombre descriptivo]
+  Como [rol]
+  Quiero [acción]
+  Para [beneficio]
+
+Antecedentes:
+  Dado que estoy autenticado como usuario "vida"
+  Y estoy en la página de Registrar Solicitud de Pago
+
+@registrar-vida @happy-path @suite-vida
+Escenario: VIDA - Pago Sobrevivencia Interbank Dólares
+  Cuando selecciono el memo "PAGO DE SOBREVIVENCIA"
+  Y hago clic en ENVIAR
+  Y completo los datos de VIDA desde JSON "pago_sobrevivencia_interbank_dolares"
+  Entonces debería ver el registro guardado
+```
+
+### Tags Principales
+- **Tipo**: `@happy-path`, `@unhappy-path`, `@regresion`, `@validacion-campos`
+- **Área**: `@registrar-vida`, `@registrar-siniestros`, `@login`
+- **Suite**: `@suite-vida`, `@suite-siniestros`, `@suite-completa`
+- **Aprobación**: `@rechazar`, `@observar`, `@aprobador2`, `@aprobador3`
+
+### Steps
+- **Given**: `Dado que estoy...` (estado inicial)
+- **When**: `Cuando...`, `Y...` (acciones)
+- **Then**: `Entonces debería...` (verificaciones)
+
+### Datos
+- **JSON** (preferido): `Y completo los datos de VIDA desde JSON "identificador"`
+- **Tablas**: Para datos específicos del escenario
+
+---
+
+## 🏗️ Page Object Model (POM) - OBLIGATORIO
+
+### Estructura Básica
+```typescript
+import { Page } from 'playwright';
+
+export class LoginPage {
+  private page: Page;
+  
+  // ✅ Selectores PRIVADOS en objeto
+  private readonly selectors = {
+    usernameInput: 'input[placeholder="Usuario"]',
+    passwordInput: 'input[type="password"]',
+    loginButton: 'button[type="submit"]'
+  };
+
+  constructor(page: Page) {
+    this.page = page;
+  }
+
+  // ✅ Métodos públicos descriptivos
+  async enterUsername(username: string): Promise<void> {
+    await this.page.fill(this.selectors.usernameInput, username);
+    console.log(`✓ Usuario ingresado: ${username}`);
+  }
+
+  async isLoginSuccessful(): Promise<boolean> {
+    try {
+      await this.page.waitForSelector('.navbar', { timeout: 10000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+```
+
+### Reglas Críticas del POM
+
+#### ✅ OBLIGATORIO
+1. **Selectores privados**: Todos en objeto `selectors` privado
+2. **Métodos públicos**: Acciones y verificaciones como métodos públicos
+3. **Documentación**: JSDoc en métodos públicos
+4. **Timeouts**: Definir como constantes, usar esperas explícitas
+5. **Constructor**: Recibir `Page` de Playwright
+
+#### ❌ PROHIBIDO
+1. **Selectores en steps**: NUNCA `page.click('selector')` en step definitions
+2. **Selectores públicos**: NUNCA exponer selectores
+3. **Assertions en POM**: NUNCA `expect()` en Page Objects
+4. **Lógica de UI en steps**: NUNCA interacción directa con `page` en steps
+
+### Uso en Step Definitions
+```typescript
+import { When, Then } from '@cucumber/cucumber';
+import { expect } from '@playwright/test';
+import { LoginPage } from '../../pages/LoginPage';
+
+When('ingreso el usuario {string}', async function(username: string) {
+  const loginPage = new LoginPage(global.page);  // ✅ Instanciar
+  await loginPage.enterUsername(username);        // ✅ Usar método POM
+  console.log(`✓ Usuario ingresado: ${username}`);
+});
+
+Then('debería ver el dashboard', async function() {
+  const loginPage = new LoginPage(global.page);
+  const isSuccess = await loginPage.isLoginSuccessful();  // ✅ Verificación en POM
+  expect(isSuccess).toBeTruthy();                        // ✅ Assertion en step
+});
+```
+
+### Convenciones de Métodos
+- **Navegación**: `navigateTo[Nombre]()`, `abrir[Nombre]()`
+- **Acciones**: `click[Nombre]()`, `seleccionar[Nombre]()`, `ingresar[Nombre]()`
+- **Verificaciones**: `is[Nombre]()`, `verificar[Nombre]()` → retornan `boolean`
+
+### Timeouts
+```typescript
+const timeouts = {
+  short: 5000,
+  medium: 10000,
+  long: 30000
+};
+
+// ✅ Correcto: Espera explícita
+await this.page.waitForSelector(this.selectors.btnGuardar, {
+  state: 'visible',
+  timeout: timeouts.medium
+});
+
+// ❌ Incorrecto: Espera fija
+await this.page.waitForTimeout(5000);
+```
+
+---
+
+## 🔧 Step Definitions (.steps.ts)
+
+### Estructura
+```typescript
+import { Given, When, Then } from '@cucumber/cucumber';
+import { expect } from '@playwright/test';
+import { [PageObject] } from '../../pages/[PageObject]';
+
+// ==================== GIVEN ====================
+Given('que estoy autenticado como usuario {string}', async function(nombre: string) {
+  const loginPage = new LoginPage(global.page);
+  // ... implementación usando POM
+});
+
+// ==================== WHEN ====================
+When('selecciono el memo {string}', async function(memo: string) {
+  const registrarPage = new RegistrarSolicitudPage(global.page);
+  await registrarPage.seleccionarMemo(memo);
+});
+
+// ==================== THEN ====================
+Then('debería ver el registro guardado', async function() {
+  const registrarPage = new RegistrarSolicitudPage(global.page);
+  const isVisible = await registrarPage.verRegistroEnGrilla();
+  expect(isVisible).toBeTruthy();
+});
+```
+
+### Reglas
+- ✅ **SIEMPRE** usar Page Objects
+- ✅ Agrupar por tipo (Given/When/Then) con comentarios
+- ✅ Instanciar Page Object en cada step pasando `global.page`
+- ✅ Hacer assertions con `expect` en steps, no en POM
+- ❌ **NUNCA** lógica de UI directa (`page.click()`, `page.fill()`)
+
+---
+
+## ✅ Buenas Prácticas
+
+### Gherkin
+- ✅ Lenguaje natural y claro
+- ✅ Escenarios descriptivos: `[ÁREA] - [Descripción]`
+- ✅ Tags consistentes (área + tipo + suite)
+- ✅ Preferir JSON para datos complejos
+- ✅ Comentarios para agrupar escenarios
+
+### Page Objects
+- ✅ Un Page Object por página principal
+- ✅ Métodos pequeños y enfocados
+- ✅ Reutilizar métodos entre steps
+- ✅ Documentar con JSDoc
+- ✅ Usar esperas explícitas
+
+### Step Definitions
+- ✅ Steps reutilizables
+- ✅ Orquestar llamadas a POM
+- ✅ Assertions claras y específicas
+
+---
+
+## 🚫 Errores Comunes
+
+1. ❌ Selectores en step definitions → Usar Page Objects
+2. ❌ `page.click()` directo en steps → Métodos de POM
+3. ❌ Selectores públicos en POM → Privados en objeto `selectors`
+4. ❌ `expect()` en Page Objects → Solo en steps
+5. ❌ `waitForTimeout()` → Usar `waitForSelector()`
+6. ❌ Datos hardcodeados → JSON o tablas
+7. ❌ Steps duplicados → Reutilizar steps existentes
+8. ❌ Tags faltantes → Incluir área + tipo + suite
+
+---
+
+## 🔍 Resolución de Problemas y Debugging
+
+### Uso Automático de MCP (Model Context Protocol)
+
+**REGLA CRÍTICA**: Cuando ocurra alguno de los siguientes casos, **SIEMPRE** usar MCP automáticamente para investigar y resolver:
+
+1. **Errores durante la ejecución**:
+   - Errores de compilación o linting
+   - Errores en tiempo de ejecución de tests
+   - Timeouts o elementos no encontrados
+   - Assertions fallidas
+
+2. **Falta de comprensión**:
+   - No se entiende la estructura de una página
+   - Selectores no funcionan como se espera
+   - Comportamiento inesperado de la aplicación
+   - Dudas sobre la implementación correcta
+
+3. **Proceso de debugging**:
+   ```
+   1. Abrir MCP automáticamente (usar herramientas de Playwright MCP)
+   2. Navegar a la URL de la aplicación si es necesario
+   3. Tomar screenshot del estado actual
+   4. Inspeccionar elementos problemáticos usando selectores
+   5. Revisar console logs para errores JavaScript
+   6. Verificar HTML de la página si es necesario
+   7. Seguir los steps manualmente para reproducir el problema
+   8. Identificar la causa raíz
+   9. Aplicar la solución correspondiente
+   ```
+
+### Herramientas MCP Disponibles
+
+- **Navegación**: `mcp_playwright_playwright_navigate` - Abrir la aplicación
+- **Screenshots**: `mcp_playwright_playwright_screenshot` - Capturar estado visual
+- **Interacción**: `mcp_playwright_playwright_click`, `mcp_playwright_playwright_fill` - Probar interacciones
+- **Inspección**: `mcp_playwright_playwright_get_visible_html` - Ver estructura HTML
+- **Console Logs**: `mcp_playwright_playwright_console_logs` - Revisar errores JavaScript
+- **Evaluación**: `mcp_playwright_playwright_evaluate` - Ejecutar JavaScript para debugging
+
+### Ejemplo de Flujo de Debugging
+
+```typescript
+// Cuando hay un error:
+// 1. Abrir MCP y navegar
+await mcp_playwright_playwright_navigate({ url: 'https://app-url.com' });
+
+// 2. Tomar screenshot del estado actual
+await mcp_playwright_playwright_screenshot({ name: 'error-state' });
+
+// 3. Revisar console logs
+await mcp_playwright_playwright_console_logs({ type: 'error' });
+
+// 4. Inspeccionar HTML del elemento problemático
+await mcp_playwright_playwright_get_visible_html({ selector: '#elemento-problema' });
+
+// 5. Probar interacción manualmente
+await mcp_playwright_playwright_click({ selector: '#boton' });
+
+// 6. Identificar y corregir el problema
+```
+
+**IMPORTANTE**: No asumir el problema sin verificar visualmente con MCP. Siempre usar herramientas de debugging antes de hacer cambios en el código.
+
+---
+
+## 🔄 Checklist
+
+### Feature
+- [ ] Carpeta correcta (`vida/` o `siniestros/`)
+- [ ] `# language: es` en encabezado
+- [ ] Antecedentes definidos
+- [ ] Tags apropiados (área + tipo + suite)
+- [ ] Escenarios descriptivos
+
+### Step Definitions
+- [ ] Carpeta correspondiente
+- [ ] **SIEMPRE** usar Page Objects
+- [ ] Instanciar con `global.page`
+- [ ] Assertions con `expect`
+
+### Page Objects
+- [ ] Selectores privados en objeto `selectors`
+- [ ] Métodos públicos documentados
+- [ ] Timeouts como constantes
+- [ ] Esperas explícitas, no `waitForTimeout`
+- [ ] Verificaciones retornan `boolean`
+
+---
+
+## 📚 Referencias
+
+- [Gherkin Syntax](https://cucumber.io/docs/gherkin/reference/)
+- [Cucumber.js](https://github.com/cucumber/cucumber-js)
+- [Playwright POM](https://playwright.dev/docs/pom)
